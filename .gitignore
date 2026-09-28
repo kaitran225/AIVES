@@ -7,7 +7,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/Dotnet.gitignore
 
-# Build results
+# ========== Build Results ==========
+[Bb]in/
+[Oo]bj/
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -18,40 +20,87 @@ x86/
 [Aa][Rr][Mm]/
 [Aa][Rr][Mm]64/
 bld/
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-[Ll]ogs/
-
-# .NET Core
-project.lock.json
-project.fragment.lock.json
-artifacts/
-
-# ASP.NET Scaffolding
-ScaffoldingReadMe.txt
-
-# NuGet Packages
-*.nupkg
-# NuGet Symbol Packages
-*.snupkg
-
-# dotenv environment variables file
-.env
-
-# Others
-~$*
-*~
-CodeCoverage/
-
-# MSBuild Binary and Structured Log
+[Bb]uild[Ll]og.*
 *.binlog
 
-# MSTest test Results
+# ========== NuGet ==========
+*.nupkg
+*.snupkg
+# NuGet symbol packages
+[Ss]ymbol[Pp]ackages/
+# Sources found at nuget.org/packages
+[Oo]utput/
+# MicrosoftAzureEmulator
+[Aa]zurediag*
+
+# ========== NuGet Config ==========
+nuget.config
+nuget.dev.settings
+
+# ========== VS Code ==========
+.vscode/
+
+# ========== Visual Studio / IDE ==========
+.vs/
+*.user
+*.suo
+*.winmds
+*.jpge
+*.jpg
+*.png
+*.gif
+readme.md
+package.lock.json
+
+# ========== ASP.NET Core ==========
+appsettings.Development.json
+appsettings.local.json
+appsettings.*.json
+!appsettings.json
+
+# ========== Entity Framework ==========
+*.efcore
+
+# ========== DotNet ==========
+[Dd]otnetTools/
+[Dd]otnetTemplates/
+[Dd]otnetTemplates.Cached/
+[Dd]otnetTemplates/
+*.dotnet
+
+# ========== dotenv environment variables file ==========
+.env
+.env.*
+!.env.example
+
+# ========== Test Results ==========
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
-
-# NUnit
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+Coverage*.html
+Coverage*.xml
+*.coverage
+*.log
+
+# ========== Others ==========
+~$*
+*~
+CodeCoverage/
+[Dd]ata[Bb]ase/
+[Ss]earch
+[Cc]ompanyIcon
+[Cc]ompanyLogo
+
+# ========== Kilo / AI ==========
+.kilo/
+
+# ========== OS Files ==========
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
