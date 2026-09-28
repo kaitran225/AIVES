@@ -1,0 +1,87 @@
+﻿@model AIVES.Business.DTOs.QuestionCreateDto
+
+@{
+    ViewData["Title"] = "Create Question";
+}
+
+<h2>Create Question</h2>
+
+<hr />
+<div class="row">
+    <div class="col-md-8">
+        <form asp-action="Create" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <div class="mb-3">
+                <label asp-for="Text" class="form-label">Question Text *</label>
+                <textarea asp-for="Text" class="form-control" rows="3" required></textarea>
+                <span asp-validation-for="Text" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="ReferenceAnswer" class="form-label">Reference Answer</label>
+                <textarea asp-for="ReferenceAnswer" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="BloomLevel" class="form-label">Bloom Level *</label>
+                    <select asp-for="BloomLevel" class="form-select" required>
+                        <option value="">-- Select --</option>
+                        <option value="Remember">Remember</option>
+                        <option value="Understand">Understand</option>
+                        <option value="Apply">Apply</option>
+                        <option value="Analyze">Analyze</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="SourceType" class="form-label">Source Type</label>
+                    <select asp-for="SourceType" class="form-select">
+                        <option value="Manual">Manual</option>
+                        <option value="AI">AI Generated</option>
+                        <option value="Imported">Imported</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="CourseId" class="form-label">Course *</label>
+                    <select asp-for="CourseId" class="form-select" required>
+                        <option value="">-- Select Course --</option>
+                        <option value="1">CS101 - Intro to Programming</option>
+                        <option value="2">CS201 - Data Structures</option>
+                        <option value="3">CS301 - Algorithms</option>
+                        <option value="4">CS401 - Software Engineering</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="TopicId" class="form-label">Topic</label>
+                    <select asp-for="TopicId" class="form-select">
+                        <option value="">-- Select Topic --</option>
+                        <option value="1">Variables & Types</option>
+                        <option value="2">Control Flow</option>
+                        <option value="3">Functions</option>
+                        <option value="4">OOP</option>
+                        <option value="5">Data Structures</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="RubricId" class="form-label">Rubric</label>
+                <select asp-for="RubricId" class="form-select">
+                    <option value="">-- No Rubric --</option>
+                    <option value="1">Technical Understanding (4 pts)</option>
+                    <option value="2">Communication (3 pts)</option>
+                    <option value="3">Problem Solving (5 pts)</option>
+                </select>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Create</button>
+                <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

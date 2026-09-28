@@ -22,6 +22,8 @@ namespace AIVES.Data
         public virtual DbSet<AIScoreSuggestion> AIScoreSuggestions => Set<AIScoreSuggestion>();
         public virtual DbSet<LecturerEvaluation> LecturerEvaluations => Set<LecturerEvaluation>();
         public virtual DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+        public virtual DbSet<CourseMaterial> CourseMaterials => Set<CourseMaterial>();
+        public virtual DbSet<MaterialChunk> MaterialChunks => Set<MaterialChunk>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -233,6 +235,32 @@ namespace AIVES.Data
                       .WithMany()
                       .HasForeignKey(e => e.UserId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ==================== CourseMaterial ====================
+            modelBuilder.Entity<CourseMaterial>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Title).IsRequired().HasMaxLength(500);
+                entity.Property(e => e.Content).IsRequired();
+                entity.Property(e => e.SourceType).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.FileName).HasMaxLength(500);
+                entity.Property(e => e.MimeType).HasMaxLength(100);
+                entity.HasOne(e => e.Course)
+                      .WithMany()
+                      .HasForeignKey(e => e.CourseId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ==================== MaterialChunk ====================
+            modelBuilder.Entity<MaterialChunk>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Text).IsRequired();
+                entity.HasOne(e => e.Material)
+                      .WithMany(m => m.Chunks)
+                      .HasForeignKey(e => e.MaterialId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

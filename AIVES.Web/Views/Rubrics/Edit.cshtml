@@ -1,0 +1,101 @@
+﻿@model AIVES.Business.DTOs.RubricUpdateDto
+
+@{
+    ViewData["Title"] = "Edit Rubric";
+}
+
+<h2>Edit Rubric: @Model.Name</h2>
+
+<div class="row">
+    <div class="col-md-8">
+        <form asp-action="Edit" method="post">
+            <input type="hidden" name="Id" value="@Model.Id" />
+            <div class="mb-3">
+                <label class="form-label">Rubric Name *</label>
+                <input asp-for="Name" class="form-control" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Maximum Score *</label>
+                <input asp-for="MaxScore" type="number" class="form-control" value="@Model.MaxScore" min="1" max="10" required />
+            </div>
+
+            <hr />
+            <h5>Criteria</h5>
+            <div id="criteria-container">
+                @for (int i = 0; i < Model.Criteria.Count; i++)
+                {
+                    var c = Model.Criteria[i];
+                    <div class="card mb-2 criterion-item">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3 mb-2">
+                                    <input type="hidden" name="Criteria[@i].Id" value="@c.Id" />
+                                    <input type="text" name="Criteria[@i].Criterion" class="form-control form-control-sm" value="@c.Criterion" placeholder="Criterion name" required />
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <input type="text" name="Criteria[@i].Description" class="form-control form-control-sm" value="@c.Description" placeholder="Description" />
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <input type="number" name="Criteria[@i].MaxScore" class="form-control form-control-sm" value="@c.MaxScore" placeholder="Max Score" />
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <input type="text" name="Criteria[@i].ScoringGuidance" class="form-control form-control-sm" value="@c.ScoringGuidance" placeholder="Scoring guidance" />
+                                </div>
+                                <div class="col-md-1 mb-2">
+                                    <button type="button" class="btn btn-sm btn-danger remove-criterion">&times;</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+            <button type="button" id="add-criterion" class="btn btn-sm btn-outline-secondary mb-3">+ Add Criterion</button>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    var criterionIndex = @Model.Criteria.Count;
+    document.getElementById("add-criterion").addEventListener("click", function() {
+        var container = document.getElementById("criteria-container");
+        var html =
+            \'<div class="card mb-2 criterion-item">\' +
+            \'  <div class="card-body">\' +
+            \'    <div class="row">\' +
+            \'      <div class="col-md-3 mb-2">\' +
+            \'        <input type="hidden" name="Criteria[" + criterionIndex + "].Id" value="0" />\' +
+            \'        <input type="text" name="Criteria[" + criterionIndex + "].Criterion" class="form-control form-control-sm" placeholder="Criterion name" required />\' +
+            \'      </div>\' +
+            \'      <div class="col-md-4 mb-2">\' +
+            \'        <input type="text" name="Criteria[" + criterionIndex + "].Description" class="form-control form-control-sm" placeholder="Description" />\' +
+            \'      </div>\' +
+            \'      <div class="col-md-2 mb-2">\' +
+            \'        <input type="number" name="Criteria[" + criterionIndex + "].MaxScore" class="form-control form-control-sm" placeholder="Max Score" value="4" />\' +
+            \'      </div>\' +
+            \'      <div class="col-md-2 mb-2">\' +
+            \'        <input type="text" name="Criteria[" + criterionIndex + "].ScoringGuidance" class="form-control form-control-sm" placeholder="Scoring guidance" />\' +
+            \'      </div>\' +
+            \'      <div class="col-md-1 mb-2">\' +
+            \'        <button type="button" class="btn btn-sm btn-danger remove-criterion">&times;</button>\' +
+            \'      </div>\' +
+            \'    </div>\' +
+            \'  </div>\' +
+            \'</div>\';
+        container.insertAdjacentHTML("beforeend", html);
+        criterionIndex++;
+    });
+    document.addEventListener("click", function(e) {
+        if (e.target.classList.contains("remove-criterion")) {
+            e.target.closest(".criterion-item").remove();
+        }
+    });
+</script>

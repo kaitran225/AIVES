@@ -1,0 +1,99 @@
+﻿@model AIVES.Business.DTOs.QuestionDto
+
+@{
+    ViewData["Title"] = "Question Details";
+}
+
+<h2>Question Details</h2>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Question #@Model.Id</h5>
+        <div>
+            <span class="badge @(Model.Status == "Approved" ? "bg-success" : Model.Status == "Pending" ? "bg-warning" : "bg-danger") me-1">@Model.Status</span>
+            <span class="badge bg-info">@Model.BloomLevel</span>
+            <span class="badge bg-light text-dark">@Model.SourceType</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <strong>Question:</strong>
+            <p class="form-control-plaintext bg-light p-3">@Model.Text</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.ReferenceAnswer))
+        {
+            <div class="mb-3">
+                <strong>Reference Answer:</strong>
+                <p class="form-control-plaintext bg-light p-3">@Model.ReferenceAnswer</p>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-md-4 mb-2">
+                <strong>Course:</strong> @Model.CourseName
+            </div>
+            <div class="col-md-4 mb-2">
+                <strong>Topic:</strong> @Model.TopicName
+            </div>
+            <div class="col-md-4 mb-2">
+                <strong>Rubric:</strong> @Model.RubricName
+            </div>
+            <div class="col-md-4 mb-2">
+                <strong>Created:</strong> @Model.CreatedAt:dd/MM/yyyy HH:mm
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.ReferenceMaterial))
+        {
+            <div class="mb-3">
+                <strong>Audit Trail:</strong>
+                <p class="form-control-plaintext bg-light p-2 small">@Model.ReferenceMaterial</p>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h6 class="mb-0">Review AI-Generated Question</h6>
+    </div>
+    <div class="card-body">
+        <form asp-action="Review" method="post">
+            <input type="hidden" name="QuestionId" value="@Model.Id" />
+            <div class="mb-3">
+                <label class="form-label">Review Status</label><br />
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="Status" id="approve" value="Approved" checked />
+                    <label class="form-check-label" for="approve">Approve</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="Status" id="reject" value="Rejected" />
+                    <label class="form-check-label" for="reject">Reject</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="Status" id="edit" value="Pending" />
+                    <label class="form-check-label" for="edit">Send Back for Editing</label>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Reviewer Notes</label>
+                <textarea name="ReviewerNotes" class="form-control" rows="2" placeholder="Add notes about your review..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Submit Review</button>
+        </form>
+    </div>
+</div>
+
+<div class="d-flex gap-2">
+    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+    <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+</div>

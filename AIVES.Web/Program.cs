@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using AIVES.Data;
+using AIVES.Business.Interfaces;
+using AIVES.Business.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +11,12 @@ builder.Services.AddControllersWithViews();
 // Register DbContext with SQL Server
 builder.Services.AddDbContext<AIVESDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register Business Services
+builder.Services.AddScoped<ICourseMaterialService, CourseMaterialService>();
+builder.Services.AddScoped<IQuestionService, QuestionService>();
+builder.Services.AddScoped<IRubricService, RubricService>();
+builder.Services.AddScoped<IAIInterviewService, SimpleRAGService>();
 
 var app = builder.Build();
 

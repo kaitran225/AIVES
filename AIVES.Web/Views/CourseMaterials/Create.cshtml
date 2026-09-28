@@ -1,0 +1,75 @@
+﻿@model AIVES.Business.DTOs.CourseMaterialCreateDto
+
+@{
+    ViewData["Title"] = "Import Course Material";
+}
+
+<h2>Import Course Material</h2>
+<p class="text-muted">Import learning materials (lecture notes, textbook excerpts, documents) for the RAG-based question generator.</p>
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">@TempData["Error"]</div>
+}
+
+<div class="row">
+    <div class="col-md-8">
+        <form asp-action="Create" method="post" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label class="form-label">Title *</label>
+                <input asp-for="Title" class="form-control" placeholder="e.g., Chapter 3 - Sorting Algorithms" required />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Course *</label>
+                <select asp-for="CourseId" class="form-select" required>
+                    <option value="">-- Select Course --</option>
+                    <option value="1">CS101 - Intro to Programming</option>
+                    <option value="2">CS201 - Data Structures</option>
+                    <option value="3">CS301 - Algorithms</option>
+                    <option value="4">CS401 - Software Engineering</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Source Type</label>
+                <select asp-for="SourceType" class="form-select" id="sourceType">
+                    <option value="TextPaste">Text Paste</option>
+                    <option value="FileUpload">File Upload</option>
+                    <option value="URL">URL</option>
+                </select>
+            </div>
+
+            <div class="mb-3" id="contentArea">
+                <label class="form-label">Content *</label>
+                <textarea asp-for="Content" class="form-control" rows="12" placeholder="Paste your course material content here...\n\nThe system will automatically chunk the content for RAG processing."></textarea>
+                <small class="text-muted">Large texts will be automatically split into chunks for retrieval.</small>
+            </div>
+
+            <div class="mb-3 d-none" id="fileUploadArea">
+                <label class="form-label">Upload File</label>
+                <input type="file" name="file" class="form-control" accept=".txt,.pdf,.doc,.docx,.md" />
+                <small class="text-muted">Supported formats: .txt, .pdf, .doc, .docx, .md</small>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Import Material</button>
+                <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.getElementById("sourceType").addEventListener("change", function() {
+        var contentArea = document.getElementById("contentArea");
+        var fileArea = document.getElementById("fileUploadArea");
+        if (this.value === "FileUpload") {
+            contentArea.classList.add("d-none");
+            fileArea.classList.remove("d-none");
+        } else {
+            contentArea.classList.remove("d-none");
+            fileArea.classList.add("d-none");
+        }
+    });
+</script>

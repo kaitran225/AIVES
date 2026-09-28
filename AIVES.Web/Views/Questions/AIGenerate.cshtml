@@ -1,0 +1,89 @@
+﻿@model AIVES.Business.DTOs.AIGeneratedQuestionDto
+
+@{
+    ViewData["Title"] = "AI Question Generator";
+}
+
+<h2>AI Question Generator</h2>
+<p class="text-muted">Generate questions from imported course materials using simplified RAG (Retrieval-Augmented Generation).</p>
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">@TempData["Error"]</div>
+}
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Generate New Question</h6>
+            </div>
+            <div class="card-body">
+                <form asp-action="AIGenerate" method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Course Code</label>
+                        <input type="text" name="courseCode" class="form-control" placeholder="e.g., CS101" value="@ViewData["CourseCode"]" required />
+                        <small class="text-muted">Enter the course code to search imported materials.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Topic</label>
+                        <input type="text" name="topic" class="form-control" placeholder="e.g., Data Structures" value="@ViewData["Topic"]" required />
+                        <small class="text-muted">Enter the topic to generate a question about.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Bloom Level</label>
+                        @{ var bloom = ViewData["BloomLevel"]?.ToString() ?? "Remember"; }
+                        <select name="bloomLevel" class="form-select">
+                            @if (bloom == "Remember") { <option value="Remember" selected>Remember (Recall facts)</option> } else { <option value="Remember">Remember (Recall facts)</option> }
+                            @if (bloom == "Understand") { <option value="Understand" selected>Understand (Explain ideas)</option> } else { <option value="Understand">Understand (Explain ideas)</option> }
+                            @if (bloom == "Apply") { <option value="Apply" selected>Apply (Use in new situations)</option> } else { <option value="Apply">Apply (Use in new situations)</option> }
+                            @if (bloom == "Analyze") { <option value="Analyze" selected>Analyze (Draw connections)</option> } else { <option value="Analyze">Analyze (Draw connections)</option> }
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-info">Generate Question</button>
+                </form>
+            </div>
+        </div>
+        <div class="card mt-3">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">How It Works</h6>
+            </div>
+            <div class="card-body small">
+                <ol>
+                    <li>Import course materials (lectures, textbooks) via <a asp-controller="CourseMaterials" asp-action="Index">Materials</a></li>
+                    <li>Enter the course code and topic</li>
+                    <li>System retrieves relevant chunks from materials (RAG)</li>
+                    <li>AI generates a question based on retrieved context</li>
+                    <li>Review and approve the generated question</li>
+                </ol>
+                <hr />
+                <p class="text-warning mb-0"><strong>Note:</strong> This is a simplified RAG implementation. For production, integrate with a vector database and LLM API.</p>
+            </div>
+        </div>
+    </div>
+    @if (Model != null && !string.IsNullOrEmpty(Model.GeneratedQuestion))
+    {
+        <div class="col-md-6">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">Generated Question</h6>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3" style="white-space: pre-wrap;">@Model.GeneratedQuestion</pre>
+                    <div class="mt-3">
+                        <span class="badge bg-info">@Model.BloomLevel</span>
+                        <span class="badge bg-secondary">Course: @Model.CourseCode</span>
+                        <span class="badge bg-secondary">Topic: @Model.Topic</span>
+                    </div>
+                    <hr />
+                    <form asp-controller="Questions" asp-action="Create" method="post">
+                        <input type="hidden" name="Text" value="@Model.GeneratedQuestion" />
+                        <input type="hidden" name="BloomLevel" value="@Model.BloomLevel" />
+                        <input type="hidden" name="SourceType" value="AI" />
+                        <button type="submit" class="btn btn-success">Save to Question Bank</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+</div>
