@@ -603,47 +603,293 @@ A single ASP.NET Core MVC application with separate class-library projects for t
 
 ---
 
-# Suggested Core Services
+# Base Interface Pattern
 
-Create interfaces and services similar to:
+All services should follow a base interface pattern to keep the business layer consistent and reusable.
 
-```text
-IQuestionService
-IExamService
-IInterviewService
-IAIInterviewService
-ISpeechToTextService
-ITextToSpeechService
-IRubricService
-IScoringService
-IAuditService
-```
-
-Example:
+## Base Interface
 
 ```csharp
+namespace AIVES.Business.Interfaces;
+
+public interface IBaseService<T> where T : class
+{
+    Task<T> GetByIdAsync(int id);
+    Task<List<T>> GetAllAsync();
+    Task<T> CreateAsync(T entity);
+    Task UpdateAsync(T entity);
+    Task DeleteAsync(int id);
+    Task<bool> ExistsAsync(int id);
+}
+```
+
+This base interface ensures every service has the same basic CRUD contract, making it easier to:
+
+- Write generic controllers or helpers
+- Swap implementations for testing
+- Keep the codebase consistent
+
+---
+
+# Service Interfaces
+
+Each service should extend `IBaseService<T>` or implement a specific interface when it has custom behavior.
+
+## 1. IQuestionService
+
+Manages the question bank.
+
+```csharp
+namespace AIVES.Business.Interfaces;
+
+public interface IQuestionService : IBaseService<AIVES.Data.Entities.Question>
+{
+    Task<List<AIVES.Data.Entities.Question>> GetByCourseAsync(int courseId);
+    Task<List<AIVES.Data.Entities.Question>> GetByTopicAsync(int topicId);
+    Task<List<AIVES.Data.Entities.Question>> GetByBloomLevelAsync(string bloomLevel);
+    Task<List<AIVES.Data.Entities.Question>> GetApprovedQuestionsAsync(int courseId, int count);
+    Task ApproveQuestionAsync(int questionId, int lecturerId);
+    Task RejectQuestionAsync(int questionId, int lecturerId, string reason);
+    Task GenerateQuestionAsync(string courseCode, string topic, string bloomLevel);
+}
+```
+
+## 2. IExamService
+
+Manages exam sessions and participants.
+
+```csharp
+namespace AIVES.Business.Interfaces;
+
+public interface IExamService : IBaseService<AIVES.Data.Entities.ExamSession>
+{
+    Task<List<AIVES.Data.Entities.ExamSession>> GetByCourseAsync(int courseId);
+    Task<List<AIVES.Data.Entities.ExamSession>> GetByStatusAsync(string status);
+    Task AddStudentToExamAsync(int examId, int studentId);
+    Task RemoveStudentFromExamAsync(int examId, int studentId);
+    Task<List<AIVES.Data.Entities.ExamParticipant>> GetParticipantsAsync(int examId);
+    Task AssignQuestionsToExamAsync(int examId);
+    Task StartExamSessionAsync(int examId);
+    Task CompleteExamSessionAsync(int examId);
+}
+```
+
+## 3. IInterviewService
+
+Manages the live interview session during the exam.
+
+```csharp
+namespace AIVES.Business.Interfaces;
+
+public interface IInterviewService
+{
+    Task CreateInterviewSessionAsync(int examParticipantId);
+    Task<AIVES.Data.Entities.InterviewSession> GetInterviewSessionAsync(int participantId);
+    Task<AIVES.Data.Entities.InterviewQuestion> GetCurrentQuestionAsync(int sessionId);
+    Task SaveAnswerAsync(int questionId, string transcript, int durationSeconds);
+    Task<bool> HasRemainingFollowUpsAsync(int examQuestionId);
+    Task CompleteInterviewSessionAsync(int sessionId);
+}
+```
+
+## 4. IAIInterviewService
+
+Handles all AI interactions. Isolated behind an interface so the AI provider can be swapped.
+
+```csharp
+namespace AIVES.Business.Interfaces;
+
 public interface IAIInterviewService
 {
-    Task<string> AnalyzeAnswerAsync(
+    // Analyze a student's answer against the rubric
+    Task<ScoreAnalysis> AnalyzeAnswerAsync(
         string question,
         string transcript,
         string rubric);
 
+    // Generate an adaptive follow-up based on the student's actual answer
     Task<string> GenerateFollowUpQuestionAsync(
         string question,
         string transcript,
         string analysis);
 
+    // Produce a grading recommendation
     Task<ScoreSuggestion> EvaluateAnswerAsync(
         string question,
         string transcript,
         string rubric);
+
+    // Generate a question from course material (RAG-based)
+    Task<string> GenerateQuestionFromMaterialAsync(
+        string courseCode,
+        string topic,
+        string bloomLevel);
+}
+
+// Supporting types
+public class ScoreAnalysis
+{
+    public bool IsCorrect { get; set; }
+    public string Summary { get; set; } = string.Empty;
+    public string MissingInformation { get; set; } = string.Empty;
+}
+
+public class ScoreSuggestion
+{
+    public int SuggestedScore { get; set; }
+    public string Strengths { get; set; } = string.Empty;
+    public string Weaknesses { get; set; } = string.Empty;
+    public string MissingInformation { get; set; } = string.Empty;
+    public string Explanation { get; set; } = string.Empty;
 }
 ```
 
-The actual implementation can use an external AI API or another AI provider, but all AI functionality should be isolated behind service interfaces.
+## 5. ISpeechToTextService
 
-This makes the system easier to test and allows the AI provider to be replaced later.
+Converts student voice input to text.
+
+```csharp
+namespace AIVES.Business.Interfaces;
+
+public interface ISpeechToTextService
+{
+    Task<string> TranscribeAsync(byte[] audioData);
+    Task<string> TranscribeAsync(string audioFilePath);
+}
+```
+
+## 6. ITextToSpeechService
+
+Converts AI questions to speech.
+
+```csharp
+namespace AIVES.Business.Interfaces;
+
+public interface ITextToSpeechService
+{
+    Task<byte[]> SynthesizeAsync(string text);
+    Task<string> SynthesizeToTempFileAsync(string text);
+}
+```
+
+## 7. IRubricService
+
+Manages grading rubrics and criteria.
+
+```csharp
+namespace AIVES.Business.Interfaces;
+
+public interface IRubricService : IBaseService<AIVES.Data.Entities.QuestionRubric>
+{
+    Task<List<AIVES.Data.Entities.RubricCriterion>> GetCriteriaAsync(int rubricId);
+    Task AddCriterionAsync(int rubricId, string criterion, string description, int maxScore, string guidance);
+    Task UpdateCriterionAsync(AIVES.Data.Entities.RubricCriterion criterion);
+    Task DeleteCriterionAsync(int criterionId);
+}
+```
+
+## 8. IScoringService
+
+Orchestrates the scoring process.
+
+```csharp
+namespace AIVES.Business.Interfaces;
+
+public interface IScoringService
+{
+    Task<ScoreSuggestion> CalculateScoreAsync(int interviewQuestionId);
+    Task ConfirmScoreAsync(int interviewQuestionId, int finalScore, int lecturerId, string comment);
+    Task<List<ScoreSuggestion>> CalculateAllScoresAsync(int examParticipantId);
+}
+```
+
+## 9. IAuditService
+
+Tracks all important actions for the audit trail.
+
+```csharp
+namespace AIVES.Business.Interfaces;
+
+public interface IAuditService
+{
+    Task LogAsync(
+        string action,
+        string entityName,
+        int? entityId,
+        string details,
+        int userId);
+}
+```
+
+---
+
+# How Interfaces Are Used
+
+```
+AIVES.Web (Controllers)
+    ↓  depends on  ↓
+AIVES.Business (Interfaces + Services)
+    ↓  depends on  ↓
+AIVES.Data (Entities + DbContext)
+```
+
+- **Controllers** depend on **interfaces**, not concrete classes
+- **Services** implement the interfaces and use **AIVES.Data** to access the database
+- This makes the system **testable** and **flexible**
+
+Example:
+
+```csharp
+// Controller depends on interface, not implementation
+public class ExamController : Controller
+{
+    private readonly IExamService _examService;
+
+    public ExamController(IExamService examService)
+    {
+        _examService = examService;
+    }
+
+    public IActionResult Details(int id)
+    {
+        var exam = _examService.GetByIdAsync(id);
+        return View(exam);
+    }
+}
+```
+
+---
+
+# Summary of Interface Structure
+
+```
+AIVES.Business/Interfaces/
+├── IBaseService<T>.cs          — Base CRUD for all services
+├── IQuestionService.cs
+├── IExamService.cs
+├── IInterviewService.cs
+├── IAIInterviewService.cs
+├── ISpeechToTextService.cs
+├── ITextToSpeechService.cs
+├── IRubricService.cs
+├── IScoringService.cs
+└── IAuditService.cs
+```
+
+All services should be registered in `Program.cs`:
+
+```csharp
+builder.Services.AddScoped<IBaseService<Question>, QuestionService>();
+builder.Services.AddScoped<IQuestionService, QuestionService>();
+builder.Services.AddScoped<IExamService, ExamService>();
+builder.Services.AddScoped<IInterviewService, InterviewService>();
+builder.Services.AddScoped<IAIInterviewService, AIInterviewService>();
+builder.Services.AddScoped<ISpeechToTextService, SpeechToTextService>();
+builder.Services.AddScoped<ITextToSpeechService, TextToSpeechService>();
+builder.Services.AddScoped<IRubricService, RubricService>();
+builder.Services.AddScoped<IScoringService, ScoringService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
+```
 
 ---
 
