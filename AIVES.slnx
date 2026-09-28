@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="AIVES.Business/AIVES.Business.csproj" />
+  <Project Path="AIVES.Data/AIVES.Data.csproj" />
+  <Project Path="AIVES.Web/AIVES.Web.csproj" />
+</Solution>
