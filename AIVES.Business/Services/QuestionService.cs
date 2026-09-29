@@ -12,10 +12,12 @@ namespace AIVES.Business.Services
     public class QuestionService : IQuestionService
     {
         private readonly AIVESDbContext _context;
+        private readonly IAIInterviewService _aiInterviewService;
 
-        public QuestionService(AIVESDbContext context)
+        public QuestionService(AIVESDbContext context, IAIInterviewService aiInterviewService)
         {
             _context = context;
+            _aiInterviewService = aiInterviewService;
         }
 
         public async Task<IEnumerable<QuestionDto>> GetAllQuestionsAsync()
@@ -190,8 +192,7 @@ namespace AIVES.Business.Services
 
         public async Task<AIGeneratedQuestionDto> GenerateQuestionFromMaterialAsync(string courseCode, string topic, string bloomLevel)
         {
-            var ragService = new SimpleRAGService(_context, new CourseMaterialService(_context));
-            var generatedQuestion = await ragService.GenerateQuestionFromMaterialAsync(courseCode, topic, bloomLevel);
+            var generatedQuestion = await _aiInterviewService.GenerateQuestionFromMaterialAsync(courseCode, topic, bloomLevel);
 
             return new AIGeneratedQuestionDto
             {
