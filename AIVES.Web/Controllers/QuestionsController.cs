@@ -1,9 +1,14 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using AIVES.Business.Interfaces;
 using AIVES.Business.DTOs;
+using AIVES.Web.ViewModels;
 
 namespace AIVES.Web.Controllers
 {
+    /// <summary>
+    /// Controller for Question CRUD operations.
+    /// Maps Business DTOs → Web ViewModels at the boundary.
+    /// </summary>
     public class QuestionsController : Controller
     {
         private readonly IQuestionService _questionService;
@@ -16,69 +21,63 @@ namespace AIVES.Web.Controllers
         // GET: Questions
         public async Task<IActionResult> Index()
         {
-            var questions = await _questionService.GetAllQuestionsAsync();
-            return View(questions);
+            var dtos = await _questionService.GetAllQuestionsAsync();
+            var viewModel = MapToIndexList(dtos);
+            return View(viewModel);
         }
 
         // GET: Questions/Details/5
         public async Task<IActionResult> Details(int id)
         {
-            var question = await _questionService.GetQuestionByIdAsync(id);
-            if (question == null) return NotFound();
-            return View(question);
+            var dto = await _questionService.GetQuestionByIdAsync(id);
+            if (dto == null) return NotFound();
+            var viewModel = MapToDetail(dto);
+            return View(viewModel);
         }
 
         // GET: Questions/Create
         public IActionResult Create()
         {
-            return View(new QuestionCreateDto());
+            return View(new QuestionCreateViewModel());
         }
 
         // POST: Questions/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(QuestionCreateDto dto)
+        public async Task<IActionResult> Create(QuestionCreateViewModel viewModel)
         {
             if (ModelState.IsValid)
             {
+                var dto = MapToCreateDto(viewModel);
                 var question = await _questionService.CreateQuestionAsync(dto);
                 TempData["Success"] = "Question created successfully.";
                 return RedirectToAction(nameof(Details), new { id = question.Id });
             }
-            return View(dto);
+            return View(viewModel);
         }
 
         // GET: Questions/Edit/5
         public async Task<IActionResult> Edit(int id)
         {
-            var question = await _questionService.GetQuestionByIdAsync(id);
-            if (question == null) return NotFound();
-            var dto = new QuestionUpdateDto
-            {
-                Id = question.Id,
-                Text = question.Text,
-                ReferenceAnswer = question.ReferenceAnswer,
-                BloomLevel = question.BloomLevel,
-                Status = question.Status,
-                CourseId = question.CourseId,
-                TopicId = question.TopicId,
-                RubricId = question.RubricId
-            };
-            return View(dto);
+            var dto = await _questionService.GetQuestionByIdAsync(id);
+            if (dto == null) return NotFound();
+            var viewModel = MapToUpdateViewModel(dto);
+            return View(viewModel);
         }
 
         // POST: Questions/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(QuestionUpdateDto dto)
+        public async Task<IActionResult> Edit(QuestionUpdateViewModel viewModel)
         {
             if (ModelState.IsValid)
             {
+                var dto = MapToUpdateDto(viewModel);
                 await _questionService.UpdateQuestionAsync(dto);
                 TempData["Success"] = "Question updated successfully.";
                 return RedirectToAction(nameof(Details), new { id = dto.Id });
             }
-            return View(dto);
+            return View(viewModel);
         }
 
         // POST: Questions/Delete/5
@@ -116,26 +115,26 @@ namespace AIVES.Web.Controllers
         // GET: Questions/AI-Generate
         public IActionResult AIGenerate()
         {
-            return View();
+            return View(new AIGenerateViewModel());
         }
 
         // POST: Questions/AI-Generate
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> AIGenerate(string courseCode, string topic, string bloomLevel)
+        public async Task<IActionResult> AIGenerate(AIGenerateViewModel viewModel)
         {
-            if (string.IsNullOrWhiteSpace(courseCode) || string.IsNullOrWhiteSpace(topic))
+            if (string.IsNullOrWhiteSpace(viewModel.CourseCode) || string.IsNullOrWhiteSpace(viewModel.Topic))
             {
-                TempData["Error"] = "Please provide course code and topic.";
-                return View();
+                viewModel.ErrorMessage = "Please provide course code and topic.";
+                return View(viewModel);
             }
 
-            var result = await _questionService.GenerateQuestionFromMaterialAsync(courseCode, topic, bloomLevel);
-            ViewData["GeneratedQuestion"] = result.GeneratedQuestion;
-            ViewData["BloomLevel"] = result.BloomLevel;
-            ViewData["CourseCode"] = result.CourseCode;
-            ViewData["Topic"] = result.Topic;
-            return View(result);
+            var result = await _questionService.GenerateQuestionFromMaterialAsync(
+                viewModel.CourseCode, viewModel.Topic, viewModel.BloomLevel);
+            viewModel.GeneratedQuestion = result.GeneratedQuestion;
+            viewModel.ReferenceAnswer = result.ReferenceAnswer;
+            viewModel.HasResult = true;
+            return View(viewModel);
         }
 
         // POST: Questions/Review
@@ -151,15 +150,121 @@ namespace AIVES.Web.Controllers
         // GET: Questions/Pending
         public async Task<IActionResult> Pending()
         {
-            var questions = await _questionService.GetPendingQuestionsAsync();
-            return View(questions);
+            var dtos = await _questionService.GetPendingQuestionsAsync();
+            var viewModel = MapToIndexList(dtos);
+            return View(viewModel);
         }
 
         // GET: Questions/ByCourse/5
         public async Task<IActionResult> ByCourse(int courseId)
         {
-            var questions = await _questionService.GetQuestionsByCourseAsync(courseId);
-            return View("Index", questions);
+            var dtos = await _questionService.GetQuestionsByCourseAsync(courseId);
+            var viewModel = MapToIndexList(dtos);
+            return View("Index", viewModel);
+        }
+
+        // ===== Mapping Methods (DTO → ViewModel) =====
+        private List<QuestionIndexViewModel> MapToIndexList(IEnumerable<QuestionDto> dtos)
+        {
+            return dtos.Select(MapToIndex).ToList();
+        }
+
+        private QuestionIndexViewModel MapToIndex(QuestionDto dto)
+        {
+            return new QuestionIndexViewModel
+            {
+                
+                Text = dto.Text,
+                BloomLevel = dto.BloomLevel,
+                Status = dto.Status,
+                SourceType = dto.SourceType,
+                CourseName = dto.CourseName,
+                TopicName = dto.TopicName,
+                RubricName = dto.RubricName,
+                CreatedAt = dto.CreatedAt
+            };
+        }
+
+        private QuestionDetailViewModel MapToDetail(QuestionDto dto)
+        {
+            return new QuestionDetailViewModel
+            {
+                
+                Text = dto.Text,
+                ReferenceAnswer = dto.ReferenceAnswer,
+                BloomLevel = dto.BloomLevel,
+                Status = dto.Status,
+                SourceType = dto.SourceType,
+                ReferenceMaterial = dto.ReferenceMaterial,
+                CreatedAt = dto.CreatedAt,
+                CourseId = dto.CourseId,
+                CourseName = dto.CourseName,
+                TopicId = dto.TopicId,
+                TopicName = dto.TopicName,
+                RubricId = dto.RubricId,
+                RubricName = dto.RubricName
+            };
+        }
+
+        private QuestionCreateViewModel MapToCreateViewModel(QuestionCreateDto dto)
+        {
+            return new QuestionCreateViewModel
+            {
+                
+                Text = dto.Text,
+                ReferenceAnswer = dto.ReferenceAnswer,
+                BloomLevel = dto.BloomLevel,
+                SourceType = dto.SourceType,
+                ReferenceMaterial = dto.ReferenceMaterial,
+                CourseId = dto.CourseId,
+                TopicId = dto.TopicId,
+                RubricId = dto.RubricId
+            };
+        }
+
+        private QuestionCreateDto MapToCreateDto(QuestionCreateViewModel vm)
+        {
+            return new QuestionCreateDto
+            {
+                Text = vm.Text,
+                ReferenceAnswer = vm.ReferenceAnswer,
+                BloomLevel = vm.BloomLevel,
+                SourceType = vm.SourceType,
+                ReferenceMaterial = vm.ReferenceMaterial,
+                CourseId = vm.CourseId,
+                TopicId = vm.TopicId,
+                RubricId = vm.RubricId
+            };
+        }
+
+        private QuestionUpdateViewModel MapToUpdateViewModel(QuestionDto dto)
+        {
+            return new QuestionUpdateViewModel
+            {
+                
+                Text = dto.Text,
+                ReferenceAnswer = dto.ReferenceAnswer,
+                BloomLevel = dto.BloomLevel,
+                Status = dto.Status,
+                CourseId = dto.CourseId,
+                TopicId = dto.TopicId,
+                RubricId = dto.RubricId
+            };
+        }
+
+        private QuestionUpdateDto MapToUpdateDto(QuestionUpdateViewModel vm)
+        {
+            return new QuestionUpdateDto
+            {
+                Id = vm.Id,
+                Text = vm.Text,
+                ReferenceAnswer = vm.ReferenceAnswer,
+                BloomLevel = vm.BloomLevel,
+                Status = vm.Status,
+                CourseId = vm.CourseId,
+                TopicId = vm.TopicId,
+                RubricId = vm.RubricId
+            };
         }
     }
 }

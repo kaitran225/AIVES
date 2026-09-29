@@ -1,4 +1,4 @@
-﻿@model AIVES.Business.DTOs.AIGeneratedQuestionDto
+@model AIGenerateViewModel
 
 @{
     ViewData["Title"] = "AI Question Generator";
@@ -7,9 +7,9 @@
 <h2>AI Question Generator</h2>
 <p class="text-muted">Generate questions from imported course materials using simplified RAG (Retrieval-Augmented Generation).</p>
 
-@if (TempData["Error"] != null)
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
 {
-    <div class="alert alert-danger">@TempData["Error"]</div>
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
 }
 
 <div class="row">
@@ -22,22 +22,23 @@
                 <form asp-action="AIGenerate" method="post">
                     <div class="mb-3">
                         <label class="form-label">Course Code</label>
-                        <input type="text" name="courseCode" class="form-control" placeholder="e.g., CS101" value="@ViewData["CourseCode"]" required />
+                        <input type="text" asp-for="CourseCode" class="form-control" placeholder="e.g., CS101" required />
+                        <span asp-validation-for="CourseCode" class="text-danger"></span>
                         <small class="text-muted">Enter the course code to search imported materials.</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Topic</label>
-                        <input type="text" name="topic" class="form-control" placeholder="e.g., Data Structures" value="@ViewData["Topic"]" required />
+                        <input type="text" asp-for="Topic" class="form-control" placeholder="e.g., Data Structures" required />
+                        <span asp-validation-for="Topic" class="text-danger"></span>
                         <small class="text-muted">Enter the topic to generate a question about.</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Bloom Level</label>
-                        @{ var bloom = ViewData["BloomLevel"]?.ToString() ?? "Remember"; }
-                        <select name="bloomLevel" class="form-select">
-                            @if (bloom == "Remember") { <option value="Remember" selected>Remember (Recall facts)</option> } else { <option value="Remember">Remember (Recall facts)</option> }
-                            @if (bloom == "Understand") { <option value="Understand" selected>Understand (Explain ideas)</option> } else { <option value="Understand">Understand (Explain ideas)</option> }
-                            @if (bloom == "Apply") { <option value="Apply" selected>Apply (Use in new situations)</option> } else { <option value="Apply">Apply (Use in new situations)</option> }
-                            @if (bloom == "Analyze") { <option value="Analyze" selected>Analyze (Draw connections)</option> } else { <option value="Analyze">Analyze (Draw connections)</option> }
+                        <select asp-for="BloomLevel" class="form-select">
+                            @foreach (var bloom in Model.BloomLevels)
+                            {
+                                <option value="@bloom" selected="@(bloom == Model.BloomLevel ? "selected" : null)">@bloom</option>
+                            }
                         </select>
                     </div>
                     <button type="submit" class="btn btn-info">Generate Question</button>
@@ -61,7 +62,7 @@
             </div>
         </div>
     </div>
-    @if (Model != null && !string.IsNullOrEmpty(Model.GeneratedQuestion))
+    @if (Model.HasResult)
     {
         <div class="col-md-6">
             <div class="card border-info">

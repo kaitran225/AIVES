@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using AIVES.Data;
 using AIVES.Business.Interfaces;
 using AIVES.Business.Services;
+using AIVES.Web.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +22,8 @@ builder.Services.AddScoped<IAIInterviewService, SimpleRAGService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");

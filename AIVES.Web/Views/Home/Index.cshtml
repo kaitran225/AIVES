@@ -1,8 +1,153 @@
-﻿@{
+@model HomeDashboardViewModel
+
+@{
     ViewData["Title"] = "Home Page";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Dashboard</h1>
+    <a asp-controller="Home" asp-action="Privacy" class="btn btn-link">Privacy Policy</a>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h3>@Model.TotalQuestions</h3>
+                <p class="mb-0">Total Questions</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h3>@Model.ApprovedQuestions</h3>
+                <p class="mb-0">Approved</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body text-center">
+                <h3>@Model.PendingQuestions</h3>
+                <p class="mb-0">Pending Review</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <h3>@Model.TotalRubrics</h3>
+                <p class="mb-0">Rubrics</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Links -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex gap-2 flex-wrap">
+                    <a asp-controller="Questions" asp-action="Index" class="btn btn-outline-primary">Question Bank</a>
+                    <a asp-controller="Questions" asp-action="Create" class="btn btn-outline-primary">Create Question</a>
+                    <a asp-controller="Questions" asp-action="AIGenerate" class="btn btn-outline-info">AI Generator</a>
+                    <a asp-controller="Questions" asp-action="Pending" class="btn btn-outline-warning">Pending Review</a>
+                    <a asp-controller="Rubrics" asp-action="Index" class="btn btn-outline-secondary">Rubrics</a>
+                    <a asp-controller="Rubrics" asp-action="Create" class="btn btn-outline-secondary">Create Rubric</a>
+                    <a asp-controller="CourseMaterials" asp-action="Index" class="btn btn-outline-success">Materials</a>
+                    <a asp-controller="CourseMaterials" asp-action="Create" class="btn btn-outline-success">Import Material</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Recent Activity -->
+<div class="row">
+    <div class="col-md-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">Recent Questions</h6>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.RecentQuestions.Any())
+                {
+                    <table class="table table-hover mb-0">
+                        <tbody>
+                            @foreach (var q in Model.RecentQuestions.Take(5))
+                            {
+                                <tr>
+                                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@q.Text">@q.Text</td>
+                                    <td><span class="badge @(q.StatusBadge)">@q.Status</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <p class="text-muted text-center py-3">No questions yet.</p>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">Recent Materials</h6>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.RecentMaterials.Any())
+                {
+                    <table class="table table-hover mb-0">
+                        <tbody>
+                            @foreach (var m in Model.RecentMaterials.Take(5))
+                            {
+                                <tr>
+                                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@m.Title">@m.Title</td>
+                                    <td><span class="badge @(m.TypeBadge)">@m.SourceType</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <p class="text-muted text-center py-3">No materials imported.</p>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">Recent Rubrics</h6>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.RecentRubrics.Any())
+                {
+                    <table class="table table-hover mb-0">
+                        <tbody>
+                            @foreach (var r in Model.RecentRubrics.Take(5))
+                            {
+                                <tr>
+                                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@r.Name">@r.Name</td>
+                                    <td><span class="badge bg-info">@r.MaxScore pts</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <p class="text-muted text-center py-3">No rubrics created.</p>
+                }
+            </div>
+        </div>
+    </div>
 </div>
