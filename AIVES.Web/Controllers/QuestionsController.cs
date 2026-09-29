@@ -240,7 +240,7 @@ namespace AIVES.Web.Controllers
         }
 
         // GET: Questions/GetTopicsByCourse/3
-        [HttpGet]
+        [HttpGet("~/Questions/GetTopicsByCourse/{courseId:int}")]
         public async Task<IActionResult> GetTopicsByCourse(int courseId)
         {
             if (courseId <= 0) return Json(new List<object>());

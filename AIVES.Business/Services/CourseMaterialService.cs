@@ -74,7 +74,7 @@ namespace AIVES.Business.Services
         {
             var course = await _context.Courses.FirstOrDefaultAsync(c => c.Code.ToLower() == courseCode.ToLower());
             if (course == null) return $"[No materials found] No course found with code: {courseCode}";
-            var chunks = await _context.MaterialChunks.Where(mc => mc.Material.CourseId == course.Id).ToListAsync();
+            var chunks = await _context.MaterialChunks.Where(mc => mc.Material != null && mc.Material.CourseId == course.Id).ToListAsync();
             if (!chunks.Any()) return $"[No materials found] No materials for course: {courseCode}";
             var queryTerms = ExtractKeywords(query);
             var scoredChunks = chunks.Select(chunk => new { Chunk = chunk, Score = CalculateSimilarity(chunk.Text, queryTerms) }).OrderByDescending(s => s.Score).Take(maxChunks).ToList();

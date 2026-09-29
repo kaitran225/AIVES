@@ -22,19 +22,38 @@
                 <form asp-action="AIGenerate" method="post" id="generateForm">
                     <div class="mb-3">
                         <label asp-for="CourseId" class="form-label">Course *</label>
-                        <select asp-for="CourseId" class="form-select" required
+                        <select asp-for="CourseId" id="courseSelect" class="form-select" required
                                 asp-items="@(new SelectList(Model.Courses, "Value", "Text"))">
                             <option value="">-- Select Course --</option>
                         </select>
                         <span asp-validation-for="CourseId" class="text-danger"></span>
                     </div>
                     <div class="mb-3">
-                        <label asp-for="TopicId" class="form-label">Topic *</label>
-                        <select asp-for="TopicId" class="form-select" id="topicSelect"
-                                asp-items="@(new SelectList(Model.Topics, "Value", "Text"))" disabled>
-                            <option value="">-- Select Course first --</option>
+                        <label for="topicSelect" class="form-label">Topic *</label>
+                        <select asp-for="TopicId" id="topicSelect" class="form-select"
+                                data-manage-url="/CourseMaterials/Manage">
+                            <option value="">@(Model.CourseId > 0 ? "-- Select Topic --" : "-- Select Course first --")</option>
+                            @if (Model.CourseId > 0)
+                            {
+                                foreach (var topic in Model.Topics)
+                                {
+                                    if (Model.TopicId.HasValue && topic.Value == Model.TopicId.Value.ToString())
+                                    {
+                                        <option value="@topic.Value" selected>@topic.Text</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@topic.Value">@topic.Text</option>
+                                    }
+                                }
+                            }
                         </select>
-                        <div class="form-text">Select a course first, then choose or create a topic.</div>
+                        <div id="topicEmptyMessage" class="form-text" style="display:none;"></div>
+                        <div class="form-text">
+                            Topics come from the selected course.
+                            <a asp-controller="CourseMaterials" asp-action="Manage">Manage courses &amp; topics</a>.
+                        </div>
+                        <input type="hidden" id="topicNameField" name="Topic" value="@Model.Topic" />
                     </div>
                     <div class="mb-3">
                         <label asp-for="RubricId" class="form-label">Rubric (optional)</label>
@@ -42,13 +61,7 @@
                                 asp-items="@(new SelectList(Model.Rubrics, "Value", "Text"))">
                             <option value="">-- No Rubric --</option>
                         </select>
-                        <div class="form-text">Select a rubric to guide the question type and scoring criteria.</div>
-                    </div>
-                    <div class="mb-3" id="newTopicInputGroup" style="display:none;">
-                        <label for="newTopicName" class="form-label">New Topic Name *</label>
-                        <input type="text" id="newTopicName" class="form-control" placeholder="Enter topic name" />
-                        <button type="button" id="addTopicBtn" class="btn btn-outline-secondary btn-sm mt-1">Add Topic</button>
-                        <div id="newTopicFeedback" class="text-muted small"></div>
+                        <div class="form-text">Select a rubric to steer the question type and scoring criteria.</div>
                     </div>
                     <div class="mb-3">
                         <label asp-for="BloomLevel" class="form-label">Bloom Level *</label>
@@ -69,6 +82,7 @@
             </div>
             <div class="card-body small">
                 <ol>
+                    <li>Create the course and its topics under <a asp-controller="CourseMaterials" asp-action="Manage">Courses &amp; Topics</a></li>
                     <li>Import course materials via <a asp-controller="CourseMaterials" asp-action="Index">Materials</a></li>
                     <li>Select a course and topic from the dropdowns</li>
                     <li>System retrieves relevant chunks from materials (RAG)</li>
@@ -128,125 +142,74 @@
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
     <script>
         (function () {
-            var courseSelect = document.querySelector('select[asp-for="CourseId"]');
+            var courseSelect = document.getElementById('courseSelect');
             var topicSelect = document.getElementById('topicSelect');
-            var newTopicGroup = document.getElementById('newTopicInputGroup');
-            var addTopicBtn = document.getElementById('addTopicBtn');
+            var topicNameField = document.getElementById('topicNameField');
             var generateBtn = document.getElementById('generateBtn');
-            var newTopicName = document.getElementById('newTopicName');
-            var topicForm = document.getElementById('generateForm');
+            var emptyMessage = document.getElementById('topicEmptyMessage');
+            var manageUrl = topicSelect.getAttribute('data-manage-url');
 
-            var selectedTopicHidden = document.createElement('input');
-            selectedTopicHidden.type = 'hidden';
-            selectedTopicHidden.name = 'Topic';
-            selectedTopicHidden.value = '';
-            topicForm.appendChild(selectedTopicHidden);
-
-            function toggleGenerateBtn() {
-                var topicVal = topicSelect.value;
-                var newTopicVal = newTopicName ? newTopicName.value.trim() : '';
-                generateBtn.disabled = !(courseSelect.value && (topicVal || newTopicVal));
+            function setEmptyMessage(html) {
+                emptyMessage.innerHTML = html;
+                emptyMessage.style.display = html ? 'block' : 'none';
             }
 
-            function loadTopics(courseId) {
+            function syncTopicName() {
+                var option = topicSelect.options[topicSelect.selectedIndex];
+                topicNameField.value = option ? option.text : '';
+            }
+
+            function toggleGenerateBtn() {
+                generateBtn.disabled = !(courseSelect.value && topicSelect.value);
+            }
+
+            function loadTopics(courseId, selectedValue) {
                 if (!courseId) {
                     topicSelect.innerHTML = '<option value="">-- Select Course first --</option>';
                     topicSelect.disabled = true;
+                    topicNameField.value = '';
+                    setEmptyMessage('');
                     toggleGenerateBtn();
                     return;
                 }
+
                 topicSelect.disabled = false;
                 fetch('/Questions/GetTopicsByCourse/' + courseId)
-                    .then(r => r.json())
+                    .then(function (r) { return r.json(); })
                     .then(function (topics) {
                         var html = '<option value="">-- Select Topic --</option>';
-                        if (topics && topics.length) {
-                            topics.forEach(function (t) {
-                                html += '<option value="' + t.id + '">' + t.name + '</option>';
-                            });
-                        }
+                        var matched = false;
+                        (topics || []).forEach(function (t) {
+                            var isSelected = selectedValue && String(t.id) === String(selectedValue);
+                            if (isSelected) matched = true;
+                            html += '<option value="' + t.id + '"' + (isSelected ? ' selected' : '') + '>' +
+                                    $('<div>').text(t.name).html() + '</option>';
+                        });
                         topicSelect.innerHTML = html;
+
+                        if (!topics || !topics.length) {
+                            setEmptyMessage('This course has no topics yet. ' +
+                                '<a href="' + manageUrl + '">Add a topic</a> before generating.');
+                        } else {
+                            setEmptyMessage('');
+                        }
+
+                        if (selectedValue && !matched) topicSelect.value = '';
+                        syncTopicName();
                         toggleGenerateBtn();
                     });
             }
 
             courseSelect.addEventListener('change', function () {
-                var courseId = this.value;
-                loadTopics(courseId);
-                newTopicGroup.style.display = 'none';
-                newTopicName.value = '';
-                selectedTopicHidden.value = '';
-                toggleGenerateBtn();
+                loadTopics(this.value, null);
             });
 
             topicSelect.addEventListener('change', function () {
-                var val = this.value;
-                if (val) {
-                    selectedTopicHidden.value = this.options[this.selectedIndex].text;
-                    newTopicGroup.style.display = 'none';
-                    newTopicName.value = '';
-                }
+                syncTopicName();
                 toggleGenerateBtn();
             });
 
-            if (addTopicBtn) {
-                addTopicBtn.addEventListener('click', function () {
-                    var name = newTopicName.value.trim();
-                    var courseId = courseSelect.value;
-                    if (!name || !courseId) { return; }
-
-                    var token = document.querySelector('input[name="__RequestVerificationToken"]').value;
-                    var formData = new FormData();
-                    formData.append('__RequestVerificationToken', token);
-                    formData.append('name', name);
-                    formData.append('courseId', courseId);
-
-                    fetch('/Questions/CreateTopic', {
-                        method: 'POST',
-                        headers: { 'RequestVerificationToken': token },
-                        body: formData
-                    })
-                    .then(r => r.json())
-                    .then(function (result) {
-                        if (result.success) {
-                            var opt = document.createElement('option');
-                            opt.value = result.topicId;
-                            opt.text = result.topicName;
-                            topicSelect.appendChild(opt);
-                            topicSelect.value = result.topicId;
-                            selectedTopicHidden.value = result.topicName;
-                            newTopicGroup.style.display = 'none';
-                            newTopicName.value = '';
-                            toggleGenerateBtn();
-                        }
-                    });
-                });
-            }
-
-            if (newTopicName) {
-                newTopicName.addEventListener('input', function () {
-                    toggleGenerateBtn();
-                });
-            }
-
-            document.querySelector('input[value="Add Topic"]').parentElement.previousElementSibling.addEventListener('click', function(e) {
-                e.preventDefault();
-                newTopicGroup.style.display = 'block';
-                newTopicName.focus();
-            });
-
-            var addTopicLink = document.createElement('a');
-            addTopicLink.href = '#';
-            addTopicLink.className = 'd-block mb-2';
-            addTopicLink.innerHTML = '+ Add new topic';
-            addTopicLink.onclick = function(e) {
-                e.preventDefault();
-                newTopicGroup.style.display = 'block';
-                newTopicName.focus();
-            };
-            topicSelect.parentElement.insertBefore(addTopicLink, topicSelect.nextSibling);
-
-            toggleGenerateBtn();
+            loadTopics(courseSelect.value, topicSelect.value);
         })();
     </script>
 }
