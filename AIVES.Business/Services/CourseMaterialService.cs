@@ -72,7 +72,7 @@ namespace AIVES.Business.Services
 
         public async Task<string> RetrieveRelevantChunksAsync(string courseCode, string query, int maxChunks = 5)
         {
-            var course = await _context.Courses.FirstOrDefaultAsync(c => c.Code.Equals(courseCode, StringComparison.OrdinalIgnoreCase));
+            var course = await _context.Courses.FirstOrDefaultAsync(c => c.Code.ToLower() == courseCode.ToLower());
             if (course == null) return $"[No materials found] No course found with code: {courseCode}";
             var chunks = await _context.MaterialChunks.Where(mc => mc.Material.CourseId == course.Id).ToListAsync();
             if (!chunks.Any()) return $"[No materials found] No materials for course: {courseCode}";

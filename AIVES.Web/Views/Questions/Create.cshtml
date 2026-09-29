@@ -47,34 +47,26 @@
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label asp-for="CourseId" class="form-label">Course *</label>
-                    <select asp-for="CourseId" class="form-select" required>
+                    <select asp-for="CourseId" class="form-select" required
+                            asp-items="@(new SelectList(Model.Courses, "Value", "Text"))">
                         <option value="">-- Select Course --</option>
-                        <option value="1">CS101 - Intro to Programming</option>
-                        <option value="2">CS201 - Data Structures</option>
-                        <option value="3">CS301 - Algorithms</option>
-                        <option value="4">CS401 - Software Engineering</option>
                     </select>
+                    <span asp-validation-for="CourseId" class="text-danger"></span>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label asp-for="TopicId" class="form-label">Topic</label>
-                    <select asp-for="TopicId" class="form-select">
+                    <select asp-for="TopicId" class="form-select"
+                            asp-items="@(new SelectList(Model.Topics, "Value", "Text"))">
                         <option value="">-- Select Topic --</option>
-                        <option value="1">Variables & Types</option>
-                        <option value="2">Control Flow</option>
-                        <option value="3">Functions</option>
-                        <option value="4">OOP</option>
-                        <option value="5">Data Structures</option>
                     </select>
                 </div>
             </div>
 
             <div class="mb-3">
                 <label asp-for="RubricId" class="form-label">Rubric</label>
-                <select asp-for="RubricId" class="form-select">
+                <select asp-for="RubricId" class="form-select"
+                        asp-items="@(new SelectList(Model.Rubrics, "Value", "Text"))">
                     <option value="">-- No Rubric --</option>
-                    <option value="1">Technical Understanding (4 pts)</option>
-                    <option value="2">Communication (3 pts)</option>
-                    <option value="3">Problem Solving (5 pts)</option>
                 </select>
             </div>
 
@@ -85,3 +77,7 @@
         </form>
     </div>
 </div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

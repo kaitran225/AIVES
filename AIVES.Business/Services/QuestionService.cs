@@ -203,6 +203,29 @@ namespace AIVES.Business.Services
             };
         }
 
+        public async Task<IEnumerable<CourseDto>> GetAllCoursesAsync()
+        {
+            var courses = await _context.Courses.OrderBy(c => c.Code).ToListAsync();
+            return courses.Select(c => new CourseDto
+            {
+                Id = c.Id,
+                Code = c.Code,
+                Name = c.Name,
+                Description = c.Description
+            });
+        }
+
+        public async Task<IEnumerable<QuestionTopicDto>> GetAllTopicsAsync()
+        {
+            var topics = await _context.QuestionTopics.OrderBy(t => t.Name).ToListAsync();
+            return topics.Select(t => new QuestionTopicDto
+            {
+                Id = t.Id,
+                Name = t.Name,
+                Description = t.Description
+            });
+        }
+
         private QuestionDto MapToDto(Question question)
         {
             return new QuestionDto

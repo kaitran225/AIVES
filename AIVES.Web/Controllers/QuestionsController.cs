@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using AIVES.Business.Interfaces;
 using AIVES.Business.DTOs;
 using AIVES.Web.ViewModels;
@@ -12,10 +13,23 @@ namespace AIVES.Web.Controllers
     public class QuestionsController : Controller
     {
         private readonly IQuestionService _questionService;
+        private readonly IRubricService _rubricService;
 
-        public QuestionsController(IQuestionService questionService)
+        public QuestionsController(IQuestionService questionService, IRubricService rubricService)
         {
             _questionService = questionService;
+            _rubricService = rubricService;
+        }
+
+        private async Task PopulateDropdownsAsync(QuestionCreateViewModel viewModel)
+        {
+            var courses = await _questionService.GetAllCoursesAsync();
+            var topics = await _questionService.GetAllTopicsAsync();
+            var rubrics = await _rubricService.GetAllRubricsAsync();
+
+            viewModel.Courses = courses.Select(c => new SelectListItem($"{c.Code} - {c.Name}", c.Id.ToString())).ToList();
+            viewModel.Topics = topics.Select(t => new SelectListItem(t.Name, t.Id.ToString())).ToList();
+            viewModel.Rubrics = rubrics.Select(r => new SelectListItem(r.Name, r.Id.ToString())).ToList();
         }
 
         // GET: Questions
@@ -36,9 +50,11 @@ namespace AIVES.Web.Controllers
         }
 
         // GET: Questions/Create
-        public IActionResult Create()
+        public async Task<IActionResult> Create()
         {
-            return View(new QuestionCreateViewModel());
+            var viewModel = new QuestionCreateViewModel();
+            await PopulateDropdownsAsync(viewModel);
+            return View(viewModel);
         }
 
         // POST: Questions/Create
@@ -46,6 +62,13 @@ namespace AIVES.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(QuestionCreateViewModel viewModel)
         {
+            var courses = await _questionService.GetAllCoursesAsync();
+            var courseIds = courses.Select(c => c.Id).ToHashSet();
+            if (!courseIds.Contains(viewModel.CourseId))
+            {
+                ModelState.AddModelError("CourseId", "Invalid course selection.");
+            }
+
             if (ModelState.IsValid)
             {
                 var dto = MapToCreateDto(viewModel);
@@ -53,6 +76,7 @@ namespace AIVES.Web.Controllers
                 TempData["Success"] = "Question created successfully.";
                 return RedirectToAction(nameof(Details), new { id = question.Id });
             }
+            await PopulateDropdownsAsync(viewModel);
             return View(viewModel);
         }
 
