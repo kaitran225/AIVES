@@ -147,6 +147,12 @@ namespace AIVES.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id)
         {
+            if (await _questionService.GetQuestionByIdAsync(id) == null)
+            {
+                TempData["Error"] = $"Question {id} no longer exists.";
+                return RedirectToAction(nameof(Index));
+            }
+
             await _questionService.DeleteQuestionAsync(id);
             TempData["Success"] = "Question deleted successfully.";
             return RedirectToAction(nameof(Index));
@@ -169,6 +175,14 @@ namespace AIVES.Web.Controllers
             {
                 TempData["Error"] = "Please enter questions to import.";
                 var viewModel = new QuestionCreateViewModel { CourseId = courseId };
+                await PopulateDropdownsAsync(viewModel);
+                return View(viewModel);
+            }
+
+            if (!await CourseExistsAsync(courseId))
+            {
+                TempData["Error"] = "Please select a valid course before importing.";
+                var viewModel = new QuestionCreateViewModel { CourseId = 0 };
                 await PopulateDropdownsAsync(viewModel);
                 return View(viewModel);
             }
@@ -249,6 +263,12 @@ namespace AIVES.Web.Controllers
             return Json(result);
         }
 
+        private async Task<bool> CourseExistsAsync(int courseId)
+        {
+            if (courseId <= 0) return false;
+            return await _courseService.GetCourseByIdAsync(courseId) != null;
+        }
+
         private async Task<bool> TopicBelongsToCourseAsync(int topicId, int courseId)
         {
             var topic = await _courseService.GetTopicByIdAsync(topicId);
@@ -299,6 +319,18 @@ namespace AIVES.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Review(QuestionReviewDto dto)
         {
+            if (dto.QuestionId <= 0)
+            {
+                TempData["Error"] = "No question was specified for review.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (await _questionService.GetQuestionByIdAsync(dto.QuestionId) == null)
+            {
+                TempData["Error"] = $"Question {dto.QuestionId} no longer exists.";
+                return RedirectToAction(nameof(Index));
+            }
+
             await _questionService.ReviewQuestionAsync(dto);
             TempData["Success"] = $"Question {dto.Status.ToLower()}d successfully.";
             return RedirectToAction(nameof(Details), new { id = dto.QuestionId });
@@ -313,7 +345,9 @@ namespace AIVES.Web.Controllers
         }
 
         // GET: Questions/ByCourse/5
-        public async Task<IActionResult> ByCourse(int courseId)
+        [HttpGet("~/Questions/ByCourse")]
+        [HttpGet("~/Questions/ByCourse/{courseId:int}")]
+        public async Task<IActionResult> ByCourse(int courseId = 0)
         {
             var dtos = await _questionService.GetQuestionsByCourseAsync(courseId);
             var courses = await _courseService.GetAllCoursesAsync();
@@ -361,22 +395,6 @@ namespace AIVES.Web.Controllers
                 TopicName = dto.TopicName,
                 RubricId = dto.RubricId,
                 RubricName = dto.RubricName
-            };
-        }
-
-        private QuestionCreateViewModel MapToCreateViewModel(QuestionCreateDto dto)
-        {
-            return new QuestionCreateViewModel
-            {
-                
-                Text = dto.Text,
-                ReferenceAnswer = dto.ReferenceAnswer,
-                BloomLevel = dto.BloomLevel,
-                SourceType = dto.SourceType,
-                ReferenceMaterial = dto.ReferenceMaterial,
-                CourseId = dto.CourseId,
-                TopicId = dto.TopicId,
-                RubricId = dto.RubricId
             };
         }
 

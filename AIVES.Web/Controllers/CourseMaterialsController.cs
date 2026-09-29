@@ -50,7 +50,7 @@ namespace AIVES.Web.Controllers
             var dto = await _materialService.GetMaterialByIdAsync(id);
             if (dto == null) return NotFound();
             var viewModel = MapToDetail(dto);
-            return View(viewModel);
+            return View("Preview", viewModel);
         }
 
         // GET: CourseMaterials/Create
@@ -91,6 +91,12 @@ namespace AIVES.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id)
         {
+            if (await _materialService.GetMaterialByIdAsync(id) == null)
+            {
+                TempData["Error"] = $"Material {id} no longer exists.";
+                return RedirectToAction(nameof(Index));
+            }
+
             await _materialService.DeleteMaterialAsync(id);
             TempData["Success"] = "Material deleted successfully.";
             return RedirectToAction(nameof(Index));
@@ -247,7 +253,9 @@ namespace AIVES.Web.Controllers
         }
 
         // GET: CourseMaterials/TopicCreate?courseId=3
-        public async Task<IActionResult> TopicCreate(int courseId)
+        [HttpGet("~/CourseMaterials/TopicCreate")]
+        [HttpGet("~/CourseMaterials/TopicCreate/{courseId:int}")]
+        public async Task<IActionResult> TopicCreate(int courseId = 0)
         {
             var viewModel = new TopicFormViewModel { CourseId = courseId };
             await PopulateCourseOptionsAsync(viewModel);

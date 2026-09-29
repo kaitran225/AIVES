@@ -1,0 +1,276 @@
+@model RubricFormViewModel
+
+@*
+    Shared criteria editor for the Rubric Create and Edit forms.
+    Rows are cloned from the <template> below, so no HTML string building
+    (and no escaping) is needed in JavaScript.
+
+    Expects the surrounding form to contain:
+      #rubricForm      - the <form> element
+      #maxScoreInput   - the rubric maximum score input
+*@
+
+<div class="d-flex justify-content-between align-items-end mb-2">
+    <h5 class="mb-0">Criteria</h5>
+    <button type="button" id="distribute-btn" class="btn btn-sm btn-outline-secondary">
+        Distribute maximum evenly
+    </button>
+</div>
+
+<div class="alert alert-danger d-none" id="score-mismatch" role="alert"></div>
+
+<div class="row fw-bold small text-muted mb-1 d-none d-md-flex">
+    <div class="col-md-3">Criterion</div>
+    <div class="col-md-4">Description</div>
+    <div class="col-md-2">Score</div>
+    <div class="col-md-2">Scoring guidance</div>
+    <div class="col-md-1"></div>
+</div>
+
+<div id="criteria-container">
+    @for (var i = 0; i < Model.Criteria.Count; i++)
+    {
+        var c = Model.Criteria[i];
+        <div class="card mb-2 criterion-item">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small mb-1 d-md-none">Criterion</label>
+                        <input type="hidden" class="criterion-id" name="Criteria[@i].Id" value="@c.Id" />
+                        <input type="text" name="Criteria[@i].Criterion" class="form-control form-control-sm criterion-name"
+                               value="@c.Criterion" placeholder="Criterion name" />
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label small mb-1 d-md-none">Description</label>
+                        <input type="text" name="Criteria[@i].Description" class="form-control form-control-sm"
+                               value="@c.Description" placeholder="What this criterion measures" />
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <label class="form-label small mb-1 d-md-none">Score</label>
+                        <input type="number" name="Criteria[@i].MaxScore" class="form-control form-control-sm criterion-score"
+                               value="@c.MaxScore" min="0" step="1" placeholder="0" />
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <label class="form-label small mb-1 d-md-none">Scoring guidance</label>
+                        <input type="text" name="Criteria[@i].ScoringGuidance" class="form-control form-control-sm"
+                               value="@c.ScoringGuidance" placeholder="How to award it" />
+                    </div>
+                    <div class="col-md-1 mb-2">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-criterion" title="Remove criterion">&times;</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (Model.Criteria.Count == 0)
+{
+    <p class="text-muted small" id="criteria-empty-hint">
+        No criteria yet. Use <strong>+ Add Criterion</strong> to create one.
+    </p>
+}
+
+<button type="button" id="add-criterion" class="btn btn-sm btn-outline-secondary mb-3">+ Add Criterion</button>
+
+<div class="mb-3">
+    <small id="score-summary" class="text-muted"></small>
+</div>
+
+@* Template used by "Add Criterion". __i__ is replaced with the row index. *@
+<template id="criterion-template">
+    <div class="card mb-2 criterion-item">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3 mb-2">
+                    <label class="form-label small mb-1 d-md-none">Criterion</label>
+                    <input type="hidden" class="criterion-id" name="Criteria[__i__].Id" value="0" />
+                    <input type="text" name="Criteria[__i__].Criterion" class="form-control form-control-sm criterion-name" placeholder="Criterion name" />
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label small mb-1 d-md-none">Description</label>
+                    <input type="text" name="Criteria[__i__].Description" class="form-control form-control-sm" placeholder="What this criterion measures" />
+                </div>
+                <div class="col-md-2 mb-2">
+                    <label class="form-label small mb-1 d-md-none">Score</label>
+                    <input type="number" name="Criteria[__i__].MaxScore" class="form-control form-control-sm criterion-score" value="0" min="0" step="1" placeholder="0" />
+                </div>
+                <div class="col-md-2 mb-2">
+                    <label class="form-label small mb-1 d-md-none">Scoring guidance</label>
+                    <input type="text" name="Criteria[__i__].ScoringGuidance" class="form-control form-control-sm" placeholder="How to award it" />
+                </div>
+                <div class="col-md-1 mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-criterion" title="Remove criterion">&times;</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+    (function () {
+        var form = document.getElementById('rubricForm');
+        var container = document.getElementById('criteria-container');
+        var template = document.getElementById('criterion-template');
+        var addBtn = document.getElementById('add-criterion');
+        var removeBtns = null;
+        var maxScoreInput = document.getElementById('maxScoreInput');
+        var mismatchBox = document.getElementById('score-mismatch');
+        var summary = document.getElementById('score-summary');
+        var distributeBtn = document.getElementById('distribute-btn');
+        var emptyHint = document.getElementById('criteria-empty-hint');
+
+        if (!form || !container || !template || !addBtn || !maxScoreInput) return;
+
+        function rows() {
+            return Array.prototype.slice.call(container.querySelectorAll('.criterion-item'));
+        }
+
+        // Only rows the user actually filled in count towards the total.
+        function filledRows() {
+            return rows().filter(function (row) {
+                var nameInput = row.querySelector('.criterion-name');
+                return nameInput && nameInput.value.trim() !== '';
+            });
+        }
+
+        // Keep Criteria[n] contiguous so model binding stays predictable.
+        function reindex() {
+            rows().forEach(function (row, index) {
+                row.querySelectorAll('[name]').forEach(function (input) {
+                    input.name = input.name.replace(/Criteria\[\w+\]/, 'Criteria[' + index + ']');
+                });
+            });
+        }
+
+        function rubricMax() {
+            return parseInt(maxScoreInput.value, 10) || 0;
+        }
+
+        function totalAllocated() {
+            return filledRows().reduce(function (sum, row) {
+                var scoreInput = row.querySelector('.criterion-score');
+                return sum + (parseInt(scoreInput.value, 10) || 0);
+            }, 0);
+        }
+
+        function isAligned() {
+            var filled = filledRows();
+            if (filled.length === 0) return true;
+            return totalAllocated() === rubricMax();
+        }
+
+        function update() {
+            var filled = filledRows();
+            var max = rubricMax();
+            var total = totalAllocated();
+
+            rows().forEach(function (row) {
+                var scoreInput = row.querySelector('.criterion-score');
+                if (scoreInput) scoreInput.max = String(max > 0 ? max : 0);
+                var btn = row.querySelector('.remove-criterion');
+                if (btn) btn.disabled = rows().length <= 1;
+            });
+
+            if (emptyHint) emptyHint.style.display = rows().length === 0 ? 'block' : 'none';
+
+            if (filled.length === 0) {
+                summary.textContent = 'No criteria added yet.';
+                summary.className = 'text-muted';
+                mismatchBox.classList.add('d-none');
+                return;
+            }
+
+            if (isAligned()) {
+                summary.textContent = 'Criteria allocate ' + total + ' of ' + max + ' points - aligned.';
+                summary.className = 'text-success';
+                mismatchBox.classList.add('d-none');
+            } else {
+                var diff = total - max;
+                summary.textContent = 'Criteria allocate ' + total + ' of ' + max + ' points (' +
+                    (diff > 0 ? '+' + diff + ' over' : Math.abs(diff) + ' short') + ').';
+                summary.className = 'text-danger fw-bold';
+
+                mismatchBox.innerHTML = '<strong>Scores do not line up.</strong> The rubric maximum is ' +
+                    max + ' but the criteria allocate ' + total + ' points. ' +
+                    'Adjust the criterion scores, or use "Distribute maximum evenly" to rebalance them.';
+                mismatchBox.classList.remove('d-none');
+            }
+        }
+
+        function distribute(total, list) {
+            if (!list.length) return;
+            var base = Math.floor(total / list.length);
+            var remainder = total % list.length;
+            list.forEach(function (row) {
+                var extra = remainder > 0 ? 1 : 0;
+                remainder -= extra;
+                row.querySelector('.criterion-score').value = base + extra;
+            });
+        }
+
+        addBtn.addEventListener('click', function () {
+            container.appendChild(template.content.cloneNode(true));
+            reindex();
+            update();
+            var last = rows()[rows().length - 1];
+            if (last) last.querySelector('.criterion-name').focus();
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!e.target.classList.contains('remove-criterion')) return;
+            if (rows().length <= 1) return;
+            e.target.closest('.criterion-item').remove();
+            reindex();
+            update();
+        });
+
+        container.addEventListener('input', function (e) {
+            if (e.target.classList.contains('criterion-score') || e.target.classList.contains('criterion-name')) {
+                update();
+            }
+        });
+
+        // Changing the rubric maximum alerts the user and offers to rebalance.
+        maxScoreInput.addEventListener('change', function () {
+            var newMax = rubricMax();
+            var filled = filledRows();
+
+            if (filled.length > 0 && totalAllocated() !== newMax) {
+                var agree = window.confirm(
+                    'Maximum score changed to ' + newMax + '.\n\n' +
+                    'The ' + filled.length + ' criteria currently allocate ' + totalAllocated() + ' points.\n\n' +
+                    'OK = distribute ' + newMax + ' evenly across the criteria\n' +
+                    'Cancel = keep the current criterion scores');
+
+                if (agree) distribute(newMax, filled);
+            }
+
+            update();
+        });
+
+        if (distributeBtn) {
+            distributeBtn.addEventListener('click', function () {
+                var filled = filledRows();
+                if (filled.length === 0) {
+                    window.alert('Add at least one criterion before distributing scores.');
+                    return;
+                }
+                distribute(rubricMax(), filled);
+                update();
+            });
+        }
+
+        form.addEventListener('submit', function (e) {
+            reindex();
+            update();
+            if (!isAligned()) {
+                e.preventDefault();
+                window.alert('The criterion scores must add up to the rubric maximum score (' + rubricMax() + ').');
+            }
+        });
+
+        reindex();
+        update();
+    })();
+</script>
