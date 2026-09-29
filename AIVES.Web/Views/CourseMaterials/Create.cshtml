@@ -21,14 +21,15 @@
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Course *</label>
-                <select asp-for="CourseId" class="form-select" required>
+                <label asp-for="CourseId" class="form-label">Course *</label>
+                <select asp-for="CourseId" class="form-select" required
+                        asp-items="@(new SelectList(Model.Courses, "Value", "Text"))">
                     <option value="">-- Select Course --</option>
-                    <option value="1">CS101 - Intro to Programming</option>
-                    <option value="2">CS201 - Data Structures</option>
-                    <option value="3">CS301 - Algorithms</option>
-                    <option value="4">CS401 - Software Engineering</option>
                 </select>
+                <span asp-validation-for="CourseId" class="text-danger"></span>
+                <div class="form-text">
+                    Need a new course or topic? <a asp-action="Manage">Manage Courses &amp; Topics</a>
+                </div>
             </div>
 
             <div class="mb-3">

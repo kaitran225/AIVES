@@ -60,6 +60,13 @@ namespace AIVES.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.Description).HasMaxLength(1000);
+                entity.Property(e => e.CourseId).IsRequired();
+
+                // QuestionTopic → Course (required)
+                entity.HasOne(e => e.Course)
+                    .WithMany(c => c.QuestionTopics)
+                    .HasForeignKey(e => e.CourseId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             // ==================== Question ====================

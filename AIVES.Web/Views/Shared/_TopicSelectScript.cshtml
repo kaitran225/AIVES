@@ -1,0 +1,64 @@
+@*
+    Loads topics for the selected course into #topicSelect.
+    Expects a course select with id="courseSelect" on the page.
+*@
+<script>
+    (function () {
+        var courseSelect = document.getElementById('courseSelect');
+        var topicSelect = document.getElementById('topicSelect');
+        if (!courseSelect || !topicSelect) return;
+
+        var url = topicSelect.getAttribute('data-topics-url') || '/Questions/GetTopicsByCourse';
+        var manageUrl = topicSelect.getAttribute('data-manage-url') || '/CourseMaterials/Manage';
+        var courseLabel = topicSelect.getAttribute('data-course-label') || 'course';
+
+        function setMessage(text) {
+            var box = document.getElementById('topicEmptyMessage');
+            if (!box) return;
+            box.innerHTML = text;
+            box.style.display = text ? 'block' : 'none';
+        }
+
+        function loadTopics(courseId, selectedValue) {
+            if (!courseId) {
+                topicSelect.innerHTML = '<option value="">-- Select Course first --</option>';
+                topicSelect.disabled = true;
+                setMessage('');
+                return;
+            }
+
+            topicSelect.disabled = false;
+            fetch(url + '/' + courseId)
+                .then(function (r) { return r.json(); })
+                .then(function (topics) {
+                    var html = '<option value="">-- No topic --</option>';
+                    var matched = false;
+                    (topics || []).forEach(function (t) {
+                        var isSelected = selectedValue && String(t.id) === String(selectedValue);
+                        if (isSelected) matched = true;
+                        html += '<option value="' + t.id + '"' + (isSelected ? ' selected' : '') + '>' +
+                                $('<div>').text(t.name).html() + '</option>';
+                    });
+                    topicSelect.innerHTML = html;
+
+                    if (!topics || !topics.length) {
+                        setMessage('This ' + courseLabel + ' has no topics yet. ' +
+                            '<a href="' + manageUrl + '">Add a topic</a> so questions can be mapped to it.');
+                    } else {
+                        setMessage('');
+                    }
+
+                    if (selectedValue && !matched) topicSelect.value = '';
+                })
+                .catch(function () {
+                    topicSelect.innerHTML = '<option value="">-- Could not load topics --</option>';
+                });
+        }
+
+        courseSelect.addEventListener('change', function () {
+            loadTopics(this.value, null);
+        });
+
+        loadTopics(courseSelect.value, topicSelect.value);
+    })();
+</script>

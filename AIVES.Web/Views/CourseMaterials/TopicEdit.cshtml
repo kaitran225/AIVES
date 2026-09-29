@@ -1,0 +1,41 @@
+@model TopicFormViewModel
+
+@{
+    ViewData["Title"] = "Edit Topic";
+}
+
+<h2>Edit Topic</h2>
+
+<div class="row">
+    <div class="col-md-8">
+        <form asp-action="TopicEdit" method="post">
+            <input type="hidden" asp-for="Id" />
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <div class="mb-3">
+                <label asp-for="CourseId" class="form-label">Course *</label>
+                <select asp-for="CourseId" class="form-select" required
+                        asp-items="@(new SelectList(Model.Courses, "Value", "Text"))">
+                    <option value="">-- Select Course --</option>
+                </select>
+                <span asp-validation-for="CourseId" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label">Topic Name *</label>
+                <input asp-for="Name" class="form-control" required />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Description" class="form-label">Description</label>
+                <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <a asp-action="Manage" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

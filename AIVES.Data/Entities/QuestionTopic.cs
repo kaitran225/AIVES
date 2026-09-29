@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
 
-namespace AIVES.Data.Entities
-{
-    public class QuestionTopic
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string? Description { get; set; }
+namespace AIVES.Data.Entities;
 
-        public List<Question> Questions { get; set; } = new();
-    }
+public class QuestionTopic
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int CourseId { get; set; }
+
+    public List<Question> Questions { get; set; } = new();
+    public Course? Course { get; set; }
 }

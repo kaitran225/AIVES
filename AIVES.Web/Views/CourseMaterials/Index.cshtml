@@ -5,8 +5,14 @@
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Course Materials</h2>
-    <a asp-action="Create" asp-route-courseId="@ViewData["CourseId"]" class="btn btn-primary">+ Import Material</a>
+    <div>
+        <h2 class="mb-0">Course Materials</h2>
+        <small class="text-muted">Manage <a asp-action="Manage">courses &amp; topics</a> here — every dropdown in the app reads from there.</small>
+    </div>
+    <div>
+        <a asp-action="Manage" class="btn btn-outline-primary me-2">Courses &amp; Topics</a>
+        <a asp-action="Create" asp-route-courseId="@ViewData["CourseId"]" class="btn btn-primary">+ Import Material</a>
+    </div>
 </div>
 
 @if (TempData["Success"] != null)

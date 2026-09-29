@@ -5,7 +5,7 @@
 }
 
 <h2>AI Question Generator</h2>
-<p class="text-muted">Generate questions from imported course materials using simplified RAG (Retrieval-Augmented Generation).</p>
+<p class="text-muted">Generate questions from imported course materials using RAG (Retrieval-Augmented Generation).</p>
 
 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
 {
@@ -19,29 +19,47 @@
                 <h6 class="mb-0">Generate New Question</h6>
             </div>
             <div class="card-body">
-                <form asp-action="AIGenerate" method="post">
+                <form asp-action="AIGenerate" method="post" id="generateForm">
                     <div class="mb-3">
-                        <label class="form-label">Course Code</label>
-                        <input type="text" asp-for="CourseCode" class="form-control" placeholder="e.g., CS101" required />
-                        <span asp-validation-for="CourseCode" class="text-danger"></span>
-                        <small class="text-muted">Enter the course code to search imported materials.</small>
+                        <label asp-for="CourseId" class="form-label">Course *</label>
+                        <select asp-for="CourseId" class="form-select" required
+                                asp-items="@(new SelectList(Model.Courses, "Value", "Text"))">
+                            <option value="">-- Select Course --</option>
+                        </select>
+                        <span asp-validation-for="CourseId" class="text-danger"></span>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Topic</label>
-                        <input type="text" asp-for="Topic" class="form-control" placeholder="e.g., Data Structures" required />
-                        <span asp-validation-for="Topic" class="text-danger"></span>
-                        <small class="text-muted">Enter the topic to generate a question about.</small>
+                        <label asp-for="TopicId" class="form-label">Topic *</label>
+                        <select asp-for="TopicId" class="form-select" id="topicSelect"
+                                asp-items="@(new SelectList(Model.Topics, "Value", "Text"))" disabled>
+                            <option value="">-- Select Course first --</option>
+                        </select>
+                        <div class="form-text">Select a course first, then choose or create a topic.</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Bloom Level</label>
-                        <select asp-for="BloomLevel" class="form-select">
+                        <label asp-for="RubricId" class="form-label">Rubric (optional)</label>
+                        <select asp-for="RubricId" class="form-select"
+                                asp-items="@(new SelectList(Model.Rubrics, "Value", "Text"))">
+                            <option value="">-- No Rubric --</option>
+                        </select>
+                        <div class="form-text">Select a rubric to guide the question type and scoring criteria.</div>
+                    </div>
+                    <div class="mb-3" id="newTopicInputGroup" style="display:none;">
+                        <label for="newTopicName" class="form-label">New Topic Name *</label>
+                        <input type="text" id="newTopicName" class="form-control" placeholder="Enter topic name" />
+                        <button type="button" id="addTopicBtn" class="btn btn-outline-secondary btn-sm mt-1">Add Topic</button>
+                        <div id="newTopicFeedback" class="text-muted small"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="BloomLevel" class="form-label">Bloom Level *</label>
+                        <select asp-for="BloomLevel" class="form-select" required>
                             @foreach (var bloom in Model.BloomLevels)
                             {
                                 <option value="@bloom" selected="@(bloom == Model.BloomLevel ? "selected" : null)">@bloom</option>
                             }
                         </select>
                     </div>
-                    <button type="submit" class="btn btn-info">Generate Question</button>
+                    <button type="submit" class="btn btn-info" id="generateBtn" disabled>Generate Question</button>
                 </form>
             </div>
         </div>
@@ -51,40 +69,184 @@
             </div>
             <div class="card-body small">
                 <ol>
-                    <li>Import course materials (lectures, textbooks) via <a asp-controller="CourseMaterials" asp-action="Index">Materials</a></li>
-                    <li>Enter the course code and topic</li>
+                    <li>Import course materials via <a asp-controller="CourseMaterials" asp-action="Index">Materials</a></li>
+                    <li>Select a course and topic from the dropdowns</li>
                     <li>System retrieves relevant chunks from materials (RAG)</li>
-                    <li>AI generates a question based on retrieved context</li>
-                    <li>Review and approve the generated question</li>
+                    <li>AI generates a question using Phi-3 mini on GPU</li>
+                    <li>Review and save the parsed question to the Question Bank</li>
                 </ol>
-                <hr />
-                <p class="text-warning mb-0"><strong>Note:</strong> This is a simplified RAG implementation. For production, integrate with a vector database and LLM API.</p>
             </div>
         </div>
     </div>
+
     @if (Model.HasResult)
     {
         <div class="col-md-6">
             <div class="card border-info">
-                <div class="card-header bg-info text-white">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
                     <h6 class="mb-0">Generated Question</h6>
+                    <span class="badge bg-light text-dark">@Model.BloomLevel</span>
                 </div>
                 <div class="card-body">
-                    <pre class="bg-light p-3" style="white-space: pre-wrap;">@Model.GeneratedQuestion</pre>
-                    <div class="mt-3">
-                        <span class="badge bg-info">@Model.BloomLevel</span>
-                        <span class="badge bg-secondary">Course: @Model.CourseCode</span>
-                        <span class="badge bg-secondary">Topic: @Model.Topic</span>
+                    <h6 class="text-muted small text-uppercase">Question</h6>
+                    <pre class="bg-light p-3 rounded mb-3" style="white-space: pre-wrap;">@Model.GeneratedQuestion</pre>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.ReferenceAnswer))
+                    {
+                        <h6 class="text-muted small text-uppercase">Reference Answer</h6>
+                        <pre class="bg-light p-3 rounded mb-3" style="white-space: pre-wrap;">@Model.ReferenceAnswer</pre>
+                    }
+
+                    <div class="d-flex gap-2">
+                        <form asp-controller="Questions" asp-action="Create" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="Text" value="@Model.GeneratedQuestion" />
+                            <input type="hidden" name="ReferenceAnswer" value="@(Model.ReferenceAnswer ?? "")" />
+                            <input type="hidden" name="BloomLevel" value="@Model.BloomLevel" />
+                            <input type="hidden" name="SourceType" value="AI" />
+                            <input type="hidden" name="Status" value="Pending" />
+                            <input type="hidden" name="CourseId" value="@Model.CourseId" />
+                            @if (Model.TopicId.HasValue && Model.TopicId > 0)
+                            {
+                                <input type="hidden" name="TopicId" value="@Model.TopicId" />
+                            }
+                            @if (Model.RubricId.HasValue && Model.RubricId > 0)
+                            {
+                                <input type="hidden" name="RubricId" value="@Model.RubricId" />
+                            }
+                            <button type="submit" class="btn btn-success">Save to Question Bank</button>
+                        </form>
+                        <a asp-action="AIGenerate" class="btn btn-outline-secondary">Generate Again</a>
                     </div>
-                    <hr />
-                    <form asp-controller="Questions" asp-action="Create" method="post">
-                        <input type="hidden" name="Text" value="@Model.GeneratedQuestion" />
-                        <input type="hidden" name="BloomLevel" value="@Model.BloomLevel" />
-                        <input type="hidden" name="SourceType" value="AI" />
-                        <button type="submit" class="btn btn-success">Save to Question Bank</button>
-                    </form>
                 </div>
             </div>
         </div>
     }
 </div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        (function () {
+            var courseSelect = document.querySelector('select[asp-for="CourseId"]');
+            var topicSelect = document.getElementById('topicSelect');
+            var newTopicGroup = document.getElementById('newTopicInputGroup');
+            var addTopicBtn = document.getElementById('addTopicBtn');
+            var generateBtn = document.getElementById('generateBtn');
+            var newTopicName = document.getElementById('newTopicName');
+            var topicForm = document.getElementById('generateForm');
+
+            var selectedTopicHidden = document.createElement('input');
+            selectedTopicHidden.type = 'hidden';
+            selectedTopicHidden.name = 'Topic';
+            selectedTopicHidden.value = '';
+            topicForm.appendChild(selectedTopicHidden);
+
+            function toggleGenerateBtn() {
+                var topicVal = topicSelect.value;
+                var newTopicVal = newTopicName ? newTopicName.value.trim() : '';
+                generateBtn.disabled = !(courseSelect.value && (topicVal || newTopicVal));
+            }
+
+            function loadTopics(courseId) {
+                if (!courseId) {
+                    topicSelect.innerHTML = '<option value="">-- Select Course first --</option>';
+                    topicSelect.disabled = true;
+                    toggleGenerateBtn();
+                    return;
+                }
+                topicSelect.disabled = false;
+                fetch('/Questions/GetTopicsByCourse/' + courseId)
+                    .then(r => r.json())
+                    .then(function (topics) {
+                        var html = '<option value="">-- Select Topic --</option>';
+                        if (topics && topics.length) {
+                            topics.forEach(function (t) {
+                                html += '<option value="' + t.id + '">' + t.name + '</option>';
+                            });
+                        }
+                        topicSelect.innerHTML = html;
+                        toggleGenerateBtn();
+                    });
+            }
+
+            courseSelect.addEventListener('change', function () {
+                var courseId = this.value;
+                loadTopics(courseId);
+                newTopicGroup.style.display = 'none';
+                newTopicName.value = '';
+                selectedTopicHidden.value = '';
+                toggleGenerateBtn();
+            });
+
+            topicSelect.addEventListener('change', function () {
+                var val = this.value;
+                if (val) {
+                    selectedTopicHidden.value = this.options[this.selectedIndex].text;
+                    newTopicGroup.style.display = 'none';
+                    newTopicName.value = '';
+                }
+                toggleGenerateBtn();
+            });
+
+            if (addTopicBtn) {
+                addTopicBtn.addEventListener('click', function () {
+                    var name = newTopicName.value.trim();
+                    var courseId = courseSelect.value;
+                    if (!name || !courseId) { return; }
+
+                    var token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+                    var formData = new FormData();
+                    formData.append('__RequestVerificationToken', token);
+                    formData.append('name', name);
+                    formData.append('courseId', courseId);
+
+                    fetch('/Questions/CreateTopic', {
+                        method: 'POST',
+                        headers: { 'RequestVerificationToken': token },
+                        body: formData
+                    })
+                    .then(r => r.json())
+                    .then(function (result) {
+                        if (result.success) {
+                            var opt = document.createElement('option');
+                            opt.value = result.topicId;
+                            opt.text = result.topicName;
+                            topicSelect.appendChild(opt);
+                            topicSelect.value = result.topicId;
+                            selectedTopicHidden.value = result.topicName;
+                            newTopicGroup.style.display = 'none';
+                            newTopicName.value = '';
+                            toggleGenerateBtn();
+                        }
+                    });
+                });
+            }
+
+            if (newTopicName) {
+                newTopicName.addEventListener('input', function () {
+                    toggleGenerateBtn();
+                });
+            }
+
+            document.querySelector('input[value="Add Topic"]').parentElement.previousElementSibling.addEventListener('click', function(e) {
+                e.preventDefault();
+                newTopicGroup.style.display = 'block';
+                newTopicName.focus();
+            });
+
+            var addTopicLink = document.createElement('a');
+            addTopicLink.href = '#';
+            addTopicLink.className = 'd-block mb-2';
+            addTopicLink.innerHTML = '+ Add new topic';
+            addTopicLink.onclick = function(e) {
+                e.preventDefault();
+                newTopicGroup.style.display = 'block';
+                newTopicName.focus();
+            };
+            topicSelect.parentElement.insertBefore(addTopicLink, topicSelect.nextSibling);
+
+            toggleGenerateBtn();
+        })();
+    </script>
+}

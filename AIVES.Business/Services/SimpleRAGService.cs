@@ -25,20 +25,34 @@ public class SimpleRAGService : IAIInterviewService
         _logger = logger;
     }
 
-    public async Task<string> GenerateQuestionFromMaterialAsync(string courseCode, string topic, string bloomLevel)
+    public async Task<string> GenerateQuestionFromMaterialAsync(string courseCode, string topic, string bloomLevel, string? rubricDescription = null)
     {
         var relevantChunks = await _materialService.RetrieveRelevantChunksAsync(courseCode, topic, maxChunks: 5);
         if (string.IsNullOrWhiteSpace(relevantChunks) || relevantChunks.StartsWith("[No"))
         {
             return $"No relevant course materials found for course {courseCode} and topic {topic}. " +
-                   "Please import learning materials first.";
+                    "Please import learning materials first.";
         }
+
+        var rubricSection = string.IsNullOrWhiteSpace(rubricDescription)
+            ? ""
+            : $@"
+
+RUBRIC CRITERIA (for question type/style mapping):
+{rubricDescription}
+
+IMPORTANT: Map the generated question to the appropriate question type based on the rubric:
+- If the rubric has criteria for short answers, generate a concise question with a brief reference answer.
+- If the rubric has criteria for detailed essays, generate an open-ended question requiring explanation.
+- If the rubric has criteria for problem-solving, generate a practical application question.
+- If the rubric has criteria for analysis/comparison, generate a question requiring critical thinking.
+- If no rubric is specified, use a general viva format with standard scoring.";
 
         var userPrompt = $@"Based on the following course materials, generate a viva examination question:
 
 Course: {courseCode}
 Topic: {topic}
-Bloom's Taxonomy Level: {bloomLevel}
+Bloom's Taxonomy Level: {bloomLevel}{rubricSection}
 
 Relevant Materials:
 {relevantChunks}
@@ -54,10 +68,10 @@ Requirements:
         var result = await _llmService.GenerateAsync(userPrompt, systemPrompt: SYSTEM_PROMPT, maxTokens: 512, temperature: 0.7f);
 
         if (string.IsNullOrWhiteSpace(result))
-        {
-            _logger.LogWarning("LLM generation returned empty result for course {Course}, topic {Topic}", courseCode, topic);
-            return GenerateTemplateQuestion(topic, bloomLevel, relevantChunks);
-        }
+            {
+                _logger.LogWarning("LLM generation returned empty result for course {Course}, topic {Topic}", courseCode, topic);
+                return GenerateTemplateQuestion(topic, bloomLevel, relevantChunks, rubricDescription);
+            }
 
         return result.Trim();
     }
@@ -156,7 +170,7 @@ Provide:
         return result.Trim();
     }
 
-    private string GenerateTemplateQuestion(string topic, string bloomLevel, string context)
+    private string GenerateTemplateQuestion(string topic, string bloomLevel, string context, string? rubricDescription = null)
     {
         var bloomTemplates = new Dictionary<string, string>
         {
@@ -169,9 +183,14 @@ Provide:
         var question = template.Replace("{topic}", topic);
         var contextLines = context.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries).Take(3).ToList();
         var contextPreview = string.Join("\n", contextLines);
+        
+        var rubricHint = string.IsNullOrWhiteSpace(rubricDescription)
+            ? ""
+            : $"\n\nNOTE: This question should be mapped to a rubric. Based on the question type, consider:\n{rubricDescription}";
+
         return $"QUESTION: {question}\n\nREFERENCE ANSWER: A comprehensive answer should cover the key concepts of {topic}, " +
-               $"demonstrating understanding at the {bloomLevel} level of Bloom's taxonomy. " +
-               $"Key points from course materials include:\n{contextPreview}";
+                $"demonstrating understanding at the {bloomLevel} level of Bloom's taxonomy. " +
+                $"Key points from course materials include:\n{contextPreview}{rubricHint}";
     }
 
     private string GenerateTemplateFeedback(int wordCount)

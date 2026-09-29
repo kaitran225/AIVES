@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using AIVES.Business.Interfaces;
 using AIVES.Business.DTOs;
 using AIVES.Web.ViewModels;
@@ -6,16 +7,24 @@ using AIVES.Web.ViewModels;
 namespace AIVES.Web.Controllers
 {
     /// <summary>
-    /// Controller for Course Material CRUD operations.
+    /// Controller for Course Material CRUD operations, and the single place where
+    /// courses and their topics are created, edited and deleted.
     /// Maps Business DTOs → Web ViewModels at the boundary.
     /// </summary>
     public class CourseMaterialsController : Controller
     {
         private readonly ICourseMaterialService _materialService;
+        private readonly ICourseService _courseService;
+        private readonly IQuestionService _questionService;
 
-        public CourseMaterialsController(ICourseMaterialService materialService)
+        public CourseMaterialsController(
+            ICourseMaterialService materialService,
+            ICourseService courseService,
+            IQuestionService questionService)
         {
             _materialService = materialService;
+            _courseService = courseService;
+            _questionService = questionService;
         }
 
         // GET: CourseMaterials
@@ -45,9 +54,10 @@ namespace AIVES.Web.Controllers
         }
 
         // GET: CourseMaterials/Create
-        public IActionResult Create(int? courseId)
+        public async Task<IActionResult> Create(int? courseId)
         {
             var viewModel = new CourseMaterialCreateViewModel { CourseId = courseId ?? 0 };
+            await PopulateCoursesAsync(viewModel);
             ViewData["CourseId"] = courseId;
             return View(viewModel);
         }
@@ -57,6 +67,9 @@ namespace AIVES.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(CourseMaterialCreateViewModel viewModel, IFormFile? file)
         {
+            if (!await CourseExistsAsync(viewModel.CourseId))
+                ModelState.AddModelError("CourseId", "Please select a valid course.");
+
             if (ModelState.IsValid)
             {
                 var dto = MapToCreateDto(viewModel);
@@ -69,6 +82,7 @@ namespace AIVES.Web.Controllers
                 return RedirectToAction(nameof(Details), new { id = result.MaterialId });
             }
             ViewData["CourseId"] = viewModel.CourseId;
+            await PopulateCoursesAsync(viewModel);
             return View(viewModel);
         }
 
@@ -89,6 +103,293 @@ namespace AIVES.Web.Controllers
             if (dto == null) return NotFound();
             var viewModel = MapToDetail(dto);
             return View(viewModel);
+        }
+
+        // ==================== Course & Topic Manager ====================
+
+        // GET: CourseMaterials/Manage
+        public async Task<IActionResult> Manage()
+        {
+            var courses = (await _courseService.GetAllCoursesAsync()).ToList();
+            var topics = (await _courseService.GetAllTopicsAsync()).ToList();
+            var questions = (await _questionService.GetAllQuestionsAsync()).ToList();
+            var materials = (await _materialService.GetAllMaterialsAsync()).ToList();
+
+            var viewModel = new CourseManagerViewModel
+            {
+                Courses = courses.Select(c => new CourseWithTopicsViewModel
+                {
+                    Id = c.Id,
+                    Code = c.Code,
+                    Name = c.Name,
+                    Description = c.Description,
+                    QuestionCount = questions.Count(q => q.CourseId == c.Id),
+                    MaterialCount = materials.Count(m => m.CourseId == c.Id),
+                    Topics = topics
+                        .Where(t => t.CourseId == c.Id)
+                        .Select(t => new TopicRowViewModel
+                        {
+                            Id = t.Id,
+                            Name = t.Name,
+                            Description = t.Description,
+                            QuestionCount = questions.Count(q => q.TopicId == t.Id)
+                        })
+                        .ToList()
+                }).ToList()
+            };
+
+            return View(viewModel);
+        }
+
+        // GET: CourseMaterials/CourseCreate
+        public IActionResult CourseCreate()
+        {
+            return View(new CourseFormViewModel());
+        }
+
+        // POST: CourseMaterials/CourseCreate
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CourseCreate(CourseFormViewModel viewModel)
+        {
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    var course = await _courseService.CreateCourseAsync(new CourseCreateDto
+                    {
+                        Code = viewModel.Code,
+                        Name = viewModel.Name,
+                        Description = viewModel.Description,
+                        InitialTopics = viewModel.InitialTopics
+                    });
+
+                    var topicCount = (await _courseService.GetTopicsByCourseAsync(course.Id)).Count();
+                    TempData["Success"] = $"Course {course.Code} created with {topicCount} topic(s).";
+                    return RedirectToAction(nameof(Manage));
+                }
+                catch (InvalidOperationException ex)
+                {
+                    ModelState.AddModelError("Code", ex.Message);
+                }
+            }
+
+            return View(viewModel);
+        }
+
+        // GET: CourseMaterials/CourseEdit/3
+        public async Task<IActionResult> CourseEdit(int id)
+        {
+            var course = await _courseService.GetCourseByIdAsync(id);
+            if (course == null) return NotFound();
+
+            return View(new CourseFormViewModel
+            {
+                Id = course.Id,
+                Code = course.Code,
+                Name = course.Name,
+                Description = course.Description
+            });
+        }
+
+        // POST: CourseMaterials/CourseEdit/3
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CourseEdit(CourseFormViewModel viewModel)
+        {
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    var course = await _courseService.UpdateCourseAsync(new CourseUpdateDto
+                    {
+                        Id = viewModel.Id,
+                        Code = viewModel.Code,
+                        Name = viewModel.Name,
+                        Description = viewModel.Description
+                    });
+
+                    TempData["Success"] = $"Course {course.Code} updated.";
+                    return RedirectToAction(nameof(Manage));
+                }
+                catch (InvalidOperationException ex)
+                {
+                    ModelState.AddModelError("Code", ex.Message);
+                }
+                catch (KeyNotFoundException)
+                {
+                    return NotFound();
+                }
+            }
+
+            return View(viewModel);
+        }
+
+        // POST: CourseMaterials/CourseDelete/3
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CourseDelete(int id)
+        {
+            var result = await _courseService.DeleteCourseAsync(id);
+
+            if (result.Success)
+            {
+                TempData["Success"] = result.Message;
+            }
+            else
+            {
+                TempData["Error"] = result.Blockers.Count > 0
+                    ? $"{result.Message} Still referenced by: {string.Join(", ", result.Blockers)}."
+                    : result.Message;
+            }
+
+            return RedirectToAction(nameof(Manage));
+        }
+
+        // GET: CourseMaterials/TopicCreate?courseId=3
+        public async Task<IActionResult> TopicCreate(int courseId)
+        {
+            var viewModel = new TopicFormViewModel { CourseId = courseId };
+            await PopulateCourseOptionsAsync(viewModel);
+            await SetCourseLabelAsync(viewModel);
+            return View(viewModel);
+        }
+
+        // POST: CourseMaterials/TopicCreate
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> TopicCreate(TopicFormViewModel viewModel)
+        {
+            await PopulateCourseOptionsAsync(viewModel);
+            await SetCourseLabelAsync(viewModel);
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    var topic = await _courseService.CreateTopicAsync(new QuestionTopicCreateDto
+                    {
+                        Name = viewModel.Name,
+                        Description = viewModel.Description,
+                        CourseId = viewModel.CourseId
+                    });
+
+                    TempData["Success"] = $"Topic '{topic.Name}' added.";
+                    return RedirectToAction(nameof(Manage));
+                }
+                catch (InvalidOperationException ex)
+                {
+                    ModelState.AddModelError("Name", ex.Message);
+                }
+            }
+
+            return View(viewModel);
+        }
+
+        // GET: CourseMaterials/TopicEdit/5
+        public async Task<IActionResult> TopicEdit(int id)
+        {
+            var topic = await _courseService.GetTopicByIdAsync(id);
+            if (topic == null) return NotFound();
+
+            var viewModel = new TopicFormViewModel
+            {
+                Id = topic.Id,
+                CourseId = topic.CourseId,
+                Name = topic.Name,
+                Description = topic.Description
+            };
+
+            await PopulateCourseOptionsAsync(viewModel);
+            await SetCourseLabelAsync(viewModel);
+            return View(viewModel);
+        }
+
+        // POST: CourseMaterials/TopicEdit/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> TopicEdit(TopicFormViewModel viewModel)
+        {
+            await PopulateCourseOptionsAsync(viewModel);
+            await SetCourseLabelAsync(viewModel);
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    var topic = await _courseService.UpdateTopicAsync(new QuestionTopicUpdateDto
+                    {
+                        Id = viewModel.Id,
+                        Name = viewModel.Name,
+                        Description = viewModel.Description,
+                        CourseId = viewModel.CourseId
+                    });
+
+                    TempData["Success"] = $"Topic '{topic.Name}' updated.";
+                    return RedirectToAction(nameof(Manage));
+                }
+                catch (InvalidOperationException ex)
+                {
+                    ModelState.AddModelError("Name", ex.Message);
+                }
+                catch (KeyNotFoundException)
+                {
+                    return NotFound();
+                }
+            }
+
+            return View(viewModel);
+        }
+
+        // POST: CourseMaterials/TopicDelete/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> TopicDelete(int id)
+        {
+            var result = await _courseService.DeleteTopicAsync(id);
+
+            if (result.Success)
+            {
+                TempData["Success"] = result.Message;
+            }
+            else
+            {
+                TempData["Error"] = result.Blockers.Count > 0
+                    ? $"{result.Message} Still referenced by: {string.Join(", ", result.Blockers)}."
+                    : result.Message;
+            }
+
+            return RedirectToAction(nameof(Manage));
+        }
+
+        // ===== Helpers =====
+        private async Task PopulateCoursesAsync(CourseMaterialCreateViewModel viewModel)
+        {
+            var courses = await _courseService.GetAllCoursesAsync();
+            viewModel.Courses = courses
+                .Select(c => new SelectListItem($"{c.Code} - {c.Name}", c.Id.ToString()))
+                .ToList();
+        }
+
+        private async Task PopulateCourseOptionsAsync(TopicFormViewModel viewModel)
+        {
+            var courses = await _courseService.GetAllCoursesAsync();
+            viewModel.Courses = courses
+                .Select(c => new SelectListItem($"{c.Code} - {c.Name}", c.Id.ToString()))
+                .ToList();
+        }
+
+        private async Task SetCourseLabelAsync(TopicFormViewModel viewModel)
+        {
+            if (viewModel.CourseId <= 0) return;
+            var course = await _courseService.GetCourseByIdAsync(viewModel.CourseId);
+            if (course != null) viewModel.CourseLabel = $"{course.Code} - {course.Name}";
+        }
+
+        private async Task<bool> CourseExistsAsync(int courseId)
+        {
+            if (courseId <= 0) return false;
+            return await _courseService.GetCourseByIdAsync(courseId) != null;
         }
 
         // ===== Mapping Methods (DTO ↔ ViewModel) =====

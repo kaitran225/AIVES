@@ -190,9 +190,9 @@ namespace AIVES.Business.Services
             return questions;
         }
 
-        public async Task<AIGeneratedQuestionDto> GenerateQuestionFromMaterialAsync(string courseCode, string topic, string bloomLevel)
+        public async Task<AIGeneratedQuestionDto> GenerateQuestionFromMaterialAsync(string courseCode, string topic, string bloomLevel, string? rubricDescription = null)
         {
-            var generatedQuestion = await _aiInterviewService.GenerateQuestionFromMaterialAsync(courseCode, topic, bloomLevel);
+            var generatedQuestion = await _aiInterviewService.GenerateQuestionFromMaterialAsync(courseCode, topic, bloomLevel, rubricDescription);
 
             return new AIGeneratedQuestionDto
             {
@@ -201,29 +201,6 @@ namespace AIVES.Business.Services
                 Topic = topic,
                 BloomLevel = bloomLevel
             };
-        }
-
-        public async Task<IEnumerable<CourseDto>> GetAllCoursesAsync()
-        {
-            var courses = await _context.Courses.OrderBy(c => c.Code).ToListAsync();
-            return courses.Select(c => new CourseDto
-            {
-                Id = c.Id,
-                Code = c.Code,
-                Name = c.Name,
-                Description = c.Description
-            });
-        }
-
-        public async Task<IEnumerable<QuestionTopicDto>> GetAllTopicsAsync()
-        {
-            var topics = await _context.QuestionTopics.OrderBy(t => t.Name).ToListAsync();
-            return topics.Select(t => new QuestionTopicDto
-            {
-                Id = t.Id,
-                Name = t.Name,
-                Description = t.Description
-            });
         }
 
         private QuestionDto MapToDto(Question question)

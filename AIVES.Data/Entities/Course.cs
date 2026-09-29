@@ -11,6 +11,7 @@ namespace AIVES.Data.Entities
         public string? Description { get; set; }
 
         public List<Question> Questions { get; set; } = new();
+        public List<QuestionTopic> QuestionTopics { get; set; } = new();
         public List<ExamSession> ExamSessions { get; set; } = new();
         public List<User> Lecturers { get; set; } = new();
     }

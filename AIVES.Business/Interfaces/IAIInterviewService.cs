@@ -12,7 +12,8 @@
         Task<string> GenerateQuestionFromMaterialAsync(
             string courseCode,
             string topic,
-            string bloomLevel);
+            string bloomLevel,
+            string? rubricDescription = null);
 
         /// <summary>
         /// Analyze a student answer and provide feedback.

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using AIVES.Business.Interfaces;
 using AIVES.Business.DTOs;
 using AIVES.Web.ViewModels;
+using System.Text.RegularExpressions;
 
 namespace AIVES.Web.Controllers
 {
@@ -14,29 +15,55 @@ namespace AIVES.Web.Controllers
     {
         private readonly IQuestionService _questionService;
         private readonly IRubricService _rubricService;
+        private readonly ICourseService _courseService;
 
-        public QuestionsController(IQuestionService questionService, IRubricService rubricService)
+        public QuestionsController(
+            IQuestionService questionService,
+            IRubricService rubricService,
+            ICourseService courseService)
         {
             _questionService = questionService;
             _rubricService = rubricService;
+            _courseService = courseService;
         }
 
-        private async Task PopulateDropdownsAsync(QuestionCreateViewModel viewModel)
+        private async Task PopulateDropdownsAsync(QuestionFormViewModel viewModel)
         {
-            var courses = await _questionService.GetAllCoursesAsync();
-            var topics = await _questionService.GetAllTopicsAsync();
+            var courses = await _courseService.GetAllCoursesAsync();
             var rubrics = await _rubricService.GetAllRubricsAsync();
 
             viewModel.Courses = courses.Select(c => new SelectListItem($"{c.Code} - {c.Name}", c.Id.ToString())).ToList();
-            viewModel.Topics = topics.Select(t => new SelectListItem(t.Name, t.Id.ToString())).ToList();
             viewModel.Rubrics = rubrics.Select(r => new SelectListItem(r.Name, r.Id.ToString())).ToList();
+
+            // Topics belong to a course, so they are only loaded once a course is
+            // known. The view re-loads them via GetTopicsByCourse when it changes.
+            viewModel.Topics = viewModel.CourseId > 0
+                ? await GetTopicItemsAsync(viewModel.CourseId)
+                : new List<SelectListItem>();
+        }
+
+        private async Task<List<SelectListItem>> GetTopicItemsAsync(int courseId)
+        {
+            var topics = await _courseService.GetTopicsByCourseAsync(courseId);
+            return topics.Select(t => new SelectListItem(t.Name, t.Id.ToString())).ToList();
         }
 
         // GET: Questions
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(int? courseId)
         {
-            var dtos = await _questionService.GetAllQuestionsAsync();
-            var viewModel = MapToIndexList(dtos);
+            var dtos = courseId.HasValue ? await _questionService.GetQuestionsByCourseAsync(courseId.Value) : await _questionService.GetAllQuestionsAsync();
+            var courses = await _courseService.GetAllCoursesAsync();
+            
+            QuestionBankViewModel viewModel;
+            if (courseId.HasValue)
+            {
+                viewModel = QuestionBankViewModel.ByCourse(MapToIndexList(dtos), courses, courseId.Value);
+            }
+            else
+            {
+                viewModel = QuestionBankViewModel.AllQuestions(MapToIndexList(dtos), courses);
+            }
+            
             return View(viewModel);
         }
 
@@ -62,11 +89,15 @@ namespace AIVES.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(QuestionCreateViewModel viewModel)
         {
-            var courses = await _questionService.GetAllCoursesAsync();
+            var courses = await _courseService.GetAllCoursesAsync();
             var courseIds = courses.Select(c => c.Id).ToHashSet();
             if (!courseIds.Contains(viewModel.CourseId))
             {
                 ModelState.AddModelError("CourseId", "Invalid course selection.");
+            }
+            else if (viewModel.TopicId is > 0 && !await TopicBelongsToCourseAsync(viewModel.TopicId.Value, viewModel.CourseId))
+            {
+                ModelState.AddModelError("TopicId", "The selected topic does not belong to the selected course.");
             }
 
             if (ModelState.IsValid)
@@ -86,6 +117,7 @@ namespace AIVES.Web.Controllers
             var dto = await _questionService.GetQuestionByIdAsync(id);
             if (dto == null) return NotFound();
             var viewModel = MapToUpdateViewModel(dto);
+            await PopulateDropdownsAsync(viewModel);
             return View(viewModel);
         }
 
@@ -94,6 +126,11 @@ namespace AIVES.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(QuestionUpdateViewModel viewModel)
         {
+            if (viewModel.TopicId is > 0 && !await TopicBelongsToCourseAsync(viewModel.TopicId.Value, viewModel.CourseId))
+            {
+                ModelState.AddModelError("TopicId", "The selected topic does not belong to the selected course.");
+            }
+
             if (ModelState.IsValid)
             {
                 var dto = MapToUpdateDto(viewModel);
@@ -101,6 +138,7 @@ namespace AIVES.Web.Controllers
                 TempData["Success"] = "Question updated successfully.";
                 return RedirectToAction(nameof(Details), new { id = dto.Id });
             }
+            await PopulateDropdownsAsync(viewModel);
             return View(viewModel);
         }
 
@@ -115,9 +153,11 @@ namespace AIVES.Web.Controllers
         }
 
         // GET: Questions/Import
-        public IActionResult Import()
+        public async Task<IActionResult> Import()
         {
-            return View();
+            var viewModel = new QuestionCreateViewModel();
+            await PopulateDropdownsAsync(viewModel);
+            return View(viewModel);
         }
 
         // POST: Questions/Import
@@ -128,7 +168,9 @@ namespace AIVES.Web.Controllers
             if (string.IsNullOrWhiteSpace(content))
             {
                 TempData["Error"] = "Please enter questions to import.";
-                return View();
+                var viewModel = new QuestionCreateViewModel { CourseId = courseId };
+                await PopulateDropdownsAsync(viewModel);
+                return View(viewModel);
             }
 
             var questions = await _questionService.ImportQuestionsAsync(content, courseId);
@@ -137,9 +179,11 @@ namespace AIVES.Web.Controllers
         }
 
         // GET: Questions/AI-Generate
-        public IActionResult AIGenerate()
+        public async Task<IActionResult> AIGenerate()
         {
-            return View(new AIGenerateViewModel());
+            var viewModel = new AIGenerateViewModel();
+            await PopulateAIGenerateDropdownsAsync(viewModel);
+            return View(viewModel);
         }
 
         // POST: Questions/AI-Generate
@@ -147,18 +191,107 @@ namespace AIVES.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> AIGenerate(AIGenerateViewModel viewModel)
         {
-            if (string.IsNullOrWhiteSpace(viewModel.CourseCode) || string.IsNullOrWhiteSpace(viewModel.Topic))
+            await PopulateAIGenerateDropdownsAsync(viewModel);
+
+            // Validate course is selected before allowing topic selection
+            if (viewModel.CourseId <= 0)
             {
-                viewModel.ErrorMessage = "Please provide course code and topic.";
+                viewModel.ErrorMessage = "Please select a course first to load topics.";
                 return View(viewModel);
             }
 
+            // Resolve CourseCode from selected CourseId
+            if (string.IsNullOrWhiteSpace(viewModel.CourseCode))
+            {
+                var courses = await _courseService.GetAllCoursesAsync();
+                var selectedCourse = courses.FirstOrDefault(c => c.Id == viewModel.CourseId);
+                if (selectedCourse != null)
+                {
+                    viewModel.CourseCode = selectedCourse.Code;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(viewModel.CourseCode) || string.IsNullOrWhiteSpace(viewModel.Topic))
+            {
+                viewModel.ErrorMessage = "Please provide course and topic.";
+                return View(viewModel);
+            }
+
+            // Get rubric description if a rubric is selected
+            string? rubricDescription = null;
+            if (viewModel.RubricId.HasValue && viewModel.RubricId > 0 && viewModel.Rubrics.Any())
+            {
+                var selectedRubric = viewModel.Rubrics.FirstOrDefault(r => int.TryParse(r.Value, out int id) && id == viewModel.RubricId);
+                if (selectedRubric != null)
+                {
+                    rubricDescription = $"Rubric: {selectedRubric.Text}";
+                }
+            }
+
             var result = await _questionService.GenerateQuestionFromMaterialAsync(
-                viewModel.CourseCode, viewModel.Topic, viewModel.BloomLevel);
-            viewModel.GeneratedQuestion = result.GeneratedQuestion;
-            viewModel.ReferenceAnswer = result.ReferenceAnswer;
+                viewModel.CourseCode, viewModel.Topic, viewModel.BloomLevel, rubricDescription);
+
+            ParseLLMResponse(result.GeneratedQuestion, out var questionText, out var referenceAnswer);
+
+            viewModel.GeneratedQuestion = questionText;
+            viewModel.ReferenceAnswer = referenceAnswer;
             viewModel.HasResult = true;
             return View(viewModel);
+        }
+
+        // GET: Questions/GetTopicsByCourse/3
+        [HttpGet]
+        public async Task<IActionResult> GetTopicsByCourse(int courseId)
+        {
+            if (courseId <= 0) return Json(new List<object>());
+            var topics = await _courseService.GetTopicsByCourseAsync(courseId);
+            var result = topics.Select(t => new { id = t.Id, name = t.Name }).ToList();
+            return Json(result);
+        }
+
+        private async Task<bool> TopicBelongsToCourseAsync(int topicId, int courseId)
+        {
+            var topic = await _courseService.GetTopicByIdAsync(topicId);
+            return topic != null && topic.CourseId == courseId;
+        }
+
+        private void ParseLLMResponse(string llmResponse, out string? questionText, out string? referenceAnswer)
+        {
+            questionText = llmResponse?.Trim();
+            referenceAnswer = null;
+
+            var questionMatch = Regex.Match(llmResponse ?? "", @"QUESTION:\s*(.*?)\s*(?:REFERENCE ANSWER:|$)",
+                RegexOptions.Singleline | RegexOptions.IgnoreCase);
+            if (questionMatch.Success && questionMatch.Groups.Count > 1)
+                questionText = CleanResponse(questionMatch.Groups[1].Value);
+
+            var referenceMatch = Regex.Match(llmResponse ?? "", @"REFERENCE ANSWER:\s*(.*?)\s*(?:FEEDBACK:|SCORE:|FOLLOW-UP:|$)",
+                RegexOptions.Singleline | RegexOptions.IgnoreCase);
+            if (referenceMatch.Success && referenceMatch.Groups.Count > 1)
+                referenceAnswer = CleanResponse(referenceMatch.Groups[1].Value);
+        }
+
+        private string CleanResponse(string input)
+        {
+            var html = System.Net.WebUtility.HtmlDecode(input);
+            return html.Trim();
+        }
+
+        private async Task PopulateAIGenerateDropdownsAsync(AIGenerateViewModel viewModel)
+        {
+            var courses = await _courseService.GetAllCoursesAsync();
+            viewModel.Courses = courses
+                .Select(c => new SelectListItem($"{c.Code} - {c.Name}", c.Id.ToString()))
+                .ToList();
+
+            if (viewModel.CourseId > 0)
+            {
+                viewModel.Topics = await GetTopicItemsAsync(viewModel.CourseId);
+            }
+            else
+            {
+                viewModel.Topics = new List<SelectListItem>();
+            }
         }
 
         // POST: Questions/Review
@@ -183,7 +316,8 @@ namespace AIVES.Web.Controllers
         public async Task<IActionResult> ByCourse(int courseId)
         {
             var dtos = await _questionService.GetQuestionsByCourseAsync(courseId);
-            var viewModel = MapToIndexList(dtos);
+            var courses = await _courseService.GetAllCoursesAsync();
+            var viewModel = QuestionBankViewModel.ByCourse(MapToIndexList(dtos), courses, courseId);
             return View("Index", viewModel);
         }
 
@@ -197,7 +331,7 @@ namespace AIVES.Web.Controllers
         {
             return new QuestionIndexViewModel
             {
-                
+                Id = dto.Id,
                 Text = dto.Text,
                 BloomLevel = dto.BloomLevel,
                 Status = dto.Status,
@@ -213,7 +347,7 @@ namespace AIVES.Web.Controllers
         {
             return new QuestionDetailViewModel
             {
-                
+                Id = dto.Id,
                 Text = dto.Text,
                 ReferenceAnswer = dto.ReferenceAnswer,
                 BloomLevel = dto.BloomLevel,
@@ -265,7 +399,7 @@ namespace AIVES.Web.Controllers
         {
             return new QuestionUpdateViewModel
             {
-                
+                Id = dto.Id,
                 Text = dto.Text,
                 ReferenceAnswer = dto.ReferenceAnswer,
                 BloomLevel = dto.BloomLevel,

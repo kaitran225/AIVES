@@ -1,0 +1,40 @@
+@model CourseFormViewModel
+
+@{
+    ViewData["Title"] = "Edit Course";
+}
+
+<h2>Edit Course</h2>
+<p class="text-muted">Update the course details. Topics are managed on the <a asp-action="Manage">Courses &amp; Topics</a> page.</p>
+
+<div class="row">
+    <div class="col-md-8">
+        <form asp-action="CourseEdit" method="post">
+            <input type="hidden" asp-for="Id" />
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label asp-for="Code" class="form-label">Course Code *</label>
+                    <input asp-for="Code" class="form-control" required />
+                    <span asp-validation-for="Code" class="text-danger"></span>
+                </div>
+                <div class="col-md-8 mb-3">
+                    <label asp-for="Name" class="form-label">Course Name *</label>
+                    <input asp-for="Name" class="form-control" required />
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Description" class="form-label">Description</label>
+                <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <a asp-action="Manage" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

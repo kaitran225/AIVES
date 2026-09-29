@@ -15,6 +15,7 @@ builder.Services.AddDbContext<AIVESDbContext>(options =>
 
 // Register Business Services
 builder.Services.AddScoped<ICourseMaterialService, CourseMaterialService>();
+builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IQuestionService, QuestionService>();
 builder.Services.AddScoped<IRubricService, RubricService>();
 builder.Services.AddScoped<IAIInterviewService, SimpleRAGService>();

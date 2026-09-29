@@ -15,9 +15,6 @@ public interface IQuestionService
     Task DeleteQuestionAsync(int id);
     Task<QuestionDto> ReviewQuestionAsync(QuestionReviewDto dto);
     Task<List<QuestionDto>> ImportQuestionsAsync(string content, int courseId, string delimiter = "\n");
-    Task<AIGeneratedQuestionDto> GenerateQuestionFromMaterialAsync(string courseCode, string topic, string bloomLevel);
-
-    Task<IEnumerable<CourseDto>> GetAllCoursesAsync();
-    Task<IEnumerable<QuestionTopicDto>> GetAllTopicsAsync();
+    Task<AIGeneratedQuestionDto> GenerateQuestionFromMaterialAsync(string courseCode, string topic, string bloomLevel, string? rubricDescription = null);
 }
 

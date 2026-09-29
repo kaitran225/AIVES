@@ -1,0 +1,32 @@
+@model QuestionFormViewModel
+
+@{
+    var label = ViewData["TopicLabel"] as string ?? "Topic";
+    var isRequired = ViewData["TopicRequired"] as bool? ?? false;
+}
+
+<div class="mb-3">
+    <label asp-for="TopicId" class="form-label">@label@(isRequired ? " *" : "")</label>
+    <select asp-for="TopicId" id="topicSelect" class="form-select"
+            data-topics-url="/Questions/GetTopicsByCourse"
+            data-manage-url="/CourseMaterials/Manage">
+        <option value="">@(Model.CourseId > 0 ? "-- Select Topic --" : "-- Select Course first --")</option>
+        @if (Model.CourseId > 0)
+        {
+            foreach (var topic in Model.Topics)
+            {
+                if (Model.TopicId.HasValue && topic.Value == Model.TopicId.Value.ToString())
+                {
+                    <option value="@topic.Value" selected>@topic.Text</option>
+                }
+                else
+                {
+                    <option value="@topic.Value">@topic.Text</option>
+                }
+            }
+        }
+    </select>
+    <span asp-validation-for="TopicId" class="text-danger"></span>
+    <div id="topicEmptyMessage" class="form-text" style="display:none;"></div>
+    <div class="form-text">Topics are loaded from the selected course. Add or rename them under <a asp-controller="CourseMaterials" asp-action="Manage">Courses &amp; Topics</a>.</div>
+</div>

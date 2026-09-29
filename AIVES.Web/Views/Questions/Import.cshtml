@@ -1,4 +1,6 @@
-﻿@{
+﻿@model QuestionCreateViewModel
+
+@{
     ViewData["Title"] = "Import Questions";
 }
 
@@ -15,12 +17,9 @@
         <form asp-action="Import" method="post">
             <div class="mb-3">
                 <label class="form-label">Course</label>
-                <select name="courseId" class="form-select">
+                <select asp-for="CourseId" class="form-select"
+                        asp-items="@(new SelectList(Model.Courses, "Value", "Text"))">
                     <option value="">-- Select Course --</option>
-                    <option value="1">CS101 - Intro to Programming</option>
-                    <option value="2">CS201 - Data Structures</option>
-                    <option value="3">CS301 - Algorithms</option>
-                    <option value="4">CS401 - Software Engineering</option>
                 </select>
             </div>
             <div class="mb-3">
