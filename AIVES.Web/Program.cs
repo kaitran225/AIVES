@@ -19,6 +19,10 @@ builder.Services.AddScoped<IQuestionService, QuestionService>();
 builder.Services.AddScoped<IRubricService, RubricService>();
 builder.Services.AddScoped<IAIInterviewService, SimpleRAGService>();
 
+// Register Ollama LLM service for RAG pipeline
+builder.Services.AddHttpClient<OllamaLLMService>();
+builder.Services.AddScoped<ILLMService, OllamaLLMService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
