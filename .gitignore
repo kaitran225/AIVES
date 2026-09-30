@@ -57,7 +57,8 @@ appsettings.Development.json
 appsettings.local.json
 appsettings.*.json
 !appsettings.json
-wwwroot/
+wwwroot/    
+[Ww]wwroot/
 
 # ========== Entity Framework ==========
 *.efcore
