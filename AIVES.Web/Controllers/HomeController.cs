@@ -99,8 +99,7 @@ public class HomeController : Controller
             Description = dto.Description,
             MaxScore = dto.MaxScore,
             CriteriaCount = dto.Criteria?.Count ?? 0,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            PerformanceLevelsCount = dto.PerformanceLevels?.Count ?? 0
         };
     }
 }

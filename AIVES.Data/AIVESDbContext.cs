@@ -12,7 +12,9 @@ namespace AIVES.Data
         public virtual DbSet<QuestionTopic> QuestionTopics => Set<QuestionTopic>();
         public virtual DbSet<Question> Questions => Set<Question>();
         public virtual DbSet<QuestionRubric> QuestionRubrics => Set<QuestionRubric>();
+        public virtual DbSet<PerformanceLevel> PerformanceLevels => Set<PerformanceLevel>();
         public virtual DbSet<RubricCriterion> RubricCriteria => Set<RubricCriterion>();
+        public virtual DbSet<CriterionLevelDescription> CriterionLevelDescriptions => Set<CriterionLevelDescription>();
         public virtual DbSet<ExamSession> ExamSessions => Set<ExamSession>();
         public virtual DbSet<ExamParticipant> ExamParticipants => Set<ExamParticipant>();
         public virtual DbSet<ExamQuestion> ExamQuestions => Set<ExamQuestion>();
@@ -107,19 +109,48 @@ namespace AIVES.Data
                 entity.Property(e => e.Description).HasMaxLength(1000);
             });
 
+            // ==================== PerformanceLevel ====================
+            modelBuilder.Entity<PerformanceLevel>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Level).IsRequired();
+                entity.Property(e => e.Label).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.SortOrder).IsRequired();
+
+                entity.HasOne(e => e.QuestionRubric)
+                      .WithMany(r => r.PerformanceLevels)
+                      .HasForeignKey(e => e.QuestionRubricId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
             // ==================== RubricCriterion ====================
             modelBuilder.Entity<RubricCriterion>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Criterion).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.Description).IsRequired().HasMaxLength(1000);
-                entity.Property(e => e.ScoringGuidance).HasMaxLength(2000);
+                entity.Property(e => e.SortOrder).IsRequired();
 
-                // RubricCriterion → QuestionRubric (required)
-                entity.HasOne(e => e.Rubric)
+                entity.HasOne(e => e.QuestionRubric)
                       .WithMany(r => r.Criteria)
-                      .HasForeignKey(e => e.RubricId)
+                      .HasForeignKey(e => e.QuestionRubricId)
                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ==================== CriterionLevelDescription ====================
+            modelBuilder.Entity<CriterionLevelDescription>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Description).IsRequired().HasMaxLength(2000);
+
+                entity.HasOne(e => e.RubricCriterion)
+                      .WithMany(c => c.LevelDescriptions)
+                      .HasForeignKey(e => e.RubricCriterionId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.PerformanceLevel)
+                      .WithMany()
+                      .HasForeignKey(e => e.PerformanceLevelId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             // ==================== ExamSession ====================

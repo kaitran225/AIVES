@@ -1,276 +1,387 @@
 @model RubricFormViewModel
 
 @*
-    Shared criteria editor for the Rubric Create and Edit forms.
-    Rows are cloned from the <template> below, so no HTML string building
-    (and no escaping) is needed in JavaScript.
-
-    Expects the surrounding form to contain:
-      #rubricForm      - the <form> element
-      #maxScoreInput   - the rubric maximum score input
+    Matrix rubric editor: Performance Levels (columns) × Criteria (rows)
+    Each cell contains a description for that criterion at that level.
 *@
 
-<div class="d-flex justify-content-between align-items-end mb-2">
-    <h5 class="mb-0">Criteria</h5>
-    <button type="button" id="distribute-btn" class="btn btn-sm btn-outline-secondary">
-        Distribute maximum evenly
-    </button>
-</div>
-
-<div class="alert alert-danger d-none" id="score-mismatch" role="alert"></div>
-
-<div class="row fw-bold small text-muted mb-1 d-none d-md-flex">
-    <div class="col-md-3">Criterion</div>
-    <div class="col-md-4">Description</div>
-    <div class="col-md-2">Score</div>
-    <div class="col-md-2">Scoring guidance</div>
-    <div class="col-md-1"></div>
-</div>
-
-<div id="criteria-container">
-    @for (var i = 0; i < Model.Criteria.Count; i++)
-    {
-        var c = Model.Criteria[i];
-        <div class="card mb-2 criterion-item">
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3 mb-2">
-                        <label class="form-label small mb-1 d-md-none">Criterion</label>
-                        <input type="hidden" class="criterion-id" name="Criteria[@i].Id" value="@c.Id" />
-                        <input type="text" name="Criteria[@i].Criterion" class="form-control form-control-sm criterion-name"
-                               value="@c.Criterion" placeholder="Criterion name" />
-                    </div>
-                    <div class="col-md-4 mb-2">
-                        <label class="form-label small mb-1 d-md-none">Description</label>
-                        <input type="text" name="Criteria[@i].Description" class="form-control form-control-sm"
-                               value="@c.Description" placeholder="What this criterion measures" />
-                    </div>
-                    <div class="col-md-2 mb-2">
-                        <label class="form-label small mb-1 d-md-none">Score</label>
-                        <input type="number" name="Criteria[@i].MaxScore" class="form-control form-control-sm criterion-score"
-                               value="@c.MaxScore" min="0" step="1" placeholder="0" />
-                    </div>
-                    <div class="col-md-2 mb-2">
-                        <label class="form-label small mb-1 d-md-none">Scoring guidance</label>
-                        <input type="text" name="Criteria[@i].ScoringGuidance" class="form-control form-control-sm"
-                               value="@c.ScoringGuidance" placeholder="How to award it" />
-                    </div>
-                    <div class="col-md-1 mb-2">
-                        <button type="button" class="btn btn-sm btn-outline-danger remove-criterion" title="Remove criterion">&times;</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    }
-</div>
-
-@if (Model.Criteria.Count == 0)
-{
-    <p class="text-muted small" id="criteria-empty-hint">
-        No criteria yet. Use <strong>+ Add Criterion</strong> to create one.
-    </p>
-}
-
-<button type="button" id="add-criterion" class="btn btn-sm btn-outline-secondary mb-3">+ Add Criterion</button>
-
-<div class="mb-3">
-    <small id="score-summary" class="text-muted"></small>
-</div>
-
-@* Template used by "Add Criterion". __i__ is replaced with the row index. *@
-<template id="criterion-template">
-    <div class="card mb-2 criterion-item">
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-3 mb-2">
-                    <label class="form-label small mb-1 d-md-none">Criterion</label>
-                    <input type="hidden" class="criterion-id" name="Criteria[__i__].Id" value="0" />
-                    <input type="text" name="Criteria[__i__].Criterion" class="form-control form-control-sm criterion-name" placeholder="Criterion name" />
-                </div>
-                <div class="col-md-4 mb-2">
-                    <label class="form-label small mb-1 d-md-none">Description</label>
-                    <input type="text" name="Criteria[__i__].Description" class="form-control form-control-sm" placeholder="What this criterion measures" />
-                </div>
-                <div class="col-md-2 mb-2">
-                    <label class="form-label small mb-1 d-md-none">Score</label>
-                    <input type="number" name="Criteria[__i__].MaxScore" class="form-control form-control-sm criterion-score" value="0" min="0" step="1" placeholder="0" />
-                </div>
-                <div class="col-md-2 mb-2">
-                    <label class="form-label small mb-1 d-md-none">Scoring guidance</label>
-                    <input type="text" name="Criteria[__i__].ScoringGuidance" class="form-control form-control-sm" placeholder="How to award it" />
-                </div>
-                <div class="col-md-1 mb-2">
-                    <button type="button" class="btn btn-sm btn-outline-danger remove-criterion" title="Remove criterion">&times;</button>
-                </div>
-            </div>
-        </div>
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Performance Levels</h5>
     </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            Define the performance levels (columns) for the rubric matrix.
+            Levels must be sequential starting from 1 up to Max Score.
+        </div>
+
+        <div class="row fw-bold small text-muted mb-2">
+            <div class="col-md-2">Level</div>
+            <div class="col-md-4">Label</div>
+            <div class="col-md-2">Sort Order</div>
+            <div class="col-md-2"></div>
+        </div>
+
+        <div id="levels-container">
+            @for (var i = 0; i < Model.PerformanceLevels.Count; i++)
+            {
+                var l = Model.PerformanceLevels[i];
+                <div class="row mb-2 level-item align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label small mb-1 d-md-none">Level</label>
+                        <input type="hidden" name="PerformanceLevels[@i].Id" value="@l.Id" />
+                        <input type="number" name="PerformanceLevels[@i].Level" class="form-control form-control-sm level-number"
+                               value="@l.Level" min="1" max="@Model.MaxScore" required readonly />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small mb-1 d-md-none">Label</label>
+                        <input type="text" name="PerformanceLevels[@i].Label" class="form-control form-control-sm level-label"
+                               value="@l.Label" placeholder="e.g., Beginning" required />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-1 d-md-none">Sort Order</label>
+                        <input type="number" name="PerformanceLevels[@i].SortOrder" class="form-control form-control-sm level-sort"
+                               value="@l.SortOrder" min="0" step="1" required />
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-level" title="Remove level">&times;</button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <button type="button" id="add-level" class="btn btn-sm btn-outline-secondary mb-3">+ Add Performance Level</button>
+
+        @* Template for new level *@
+        <template id="level-template">
+            <div class="row mb-2 level-item align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label small mb-1 d-md-none">Level</label>
+                    <input type="hidden" name="PerformanceLevels[__i__].Id" value="0" />
+                    <input type="number" name="PerformanceLevels[__i__].Level" class="form-control form-control-sm level-number"
+                           value="__level__" min="1" max="__maxScore__" required readonly />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small mb-1 d-md-none">Label</label>
+                    <input type="text" name="PerformanceLevels[__i__].Label" class="form-control form-control-sm level-label"
+                           placeholder="e.g., Beginning" required />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1 d-md-none">Sort Order</label>
+                    <input type="number" name="PerformanceLevels[__i__].SortOrder" class="form-control form-control-sm level-sort"
+                           value="__level__" min="0" step="1" required />
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-level" title="Remove level">&times;</button>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+
+<hr />
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Criteria Matrix</h5>
+        <button type="button" id="add-criterion" class="btn btn-sm btn-outline-primary">+ Add Criterion</button>
+    </div>
+    <div class="card-body">
+        @if (Model.PerformanceLevels.Count == 0)
+        {
+            <div class="alert alert-warning">
+                Add at least one performance level above before adding criteria.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm align-middle" id="criteria-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th rowspan="2" style="width: 200px; min-width: 200px;">Criterion</th>
+                            @foreach (var level in Model.PerformanceLevels.OrderBy(p => p.SortOrder))
+                            {
+                                <th colspan="2" class="text-center" style="min-width: 200px;">
+                                    Level @level.Level: @level.Label
+                                </th>
+                            }
+                            <th rowspan="2" style="width: 50px;"></th>
+                        </tr>
+                        <tr>
+                            @foreach (var level in Model.PerformanceLevels.OrderBy(p => p.SortOrder))
+                            {
+                                <th class="text-center" style="min-width: 100px;">Description</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody id="criteria-rows">
+                        @for (var i = 0; i < Model.Criteria.Count; i++)
+                        {
+                            var c = Model.Criteria[i];
+                            <tr class="criterion-row" data-index="@i">
+                                <td>
+                                    <input type="hidden" name="Criteria[@i].Id" value="@c.Id" class="criterion-id" />
+                                    <input type="hidden" name="Criteria[@i].SortOrder" value="@c.SortOrder" class="criterion-sort" />
+                                    <input type="text" name="Criteria[@i].Criterion" class="form-control form-control-sm criterion-name"
+                                           value="@c.Criterion" placeholder="Criterion name" required />
+                                </td>
+                                @foreach (var level in Model.PerformanceLevels.OrderBy(p => p.SortOrder))
+                                {
+                                    var desc = c.LevelDescriptions.FirstOrDefault(d => d.PerformanceLevelId == level.Id);
+                                    var descId = desc?.Id ?? 0;
+                                    var descText = desc?.Description ?? "";
+                                    <td>
+                                        <input type="hidden" name="Criteria[@i].LevelDescriptions[@level.Id].Id" value="@descId" />
+                                        <input type="hidden" name="Criteria[@i].LevelDescriptions[@level.Id].PerformanceLevelId" value="@level.Id" />
+                                        <textarea name="Criteria[@i].LevelDescriptions[@level.Id].Description"
+                                                  class="form-control form-control-sm criterion-desc"
+                                                  rows="2" placeholder="Description for Level @level.Level" required>@descText</textarea>
+                                    </td>
+                                }
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-danger remove-criterion" title="Remove criterion">&times;</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (Model.Criteria.Count == 0)
+            {
+                <p class="text-muted small text-center py-3" id="criteria-empty-hint">
+                    No criteria yet. Use <strong>+ Add Criterion</strong> to create one.
+                </p>
+            }
+        }
+    </div>
+</div>
+
+@* Template for new criterion row *@
+<template id="criterion-template">
+    <tr class="criterion-row" data-index="__i__">
+        <td>
+            <input type="hidden" name="Criteria[__i__].Id" value="0" class="criterion-id" />
+            <input type="hidden" name="Criteria[__i__].SortOrder" value="__i__" class="criterion-sort" />
+            <input type="text" name="Criteria[__i__].Criterion" class="form-control form-control-sm criterion-name" placeholder="Criterion name" required />
+        </td>
+        @foreach (var level in Model.PerformanceLevels.OrderBy(p => p.SortOrder))
+        {
+            <td>
+                <input type="hidden" name="Criteria[__i__].LevelDescriptions[@level.Id].Id" value="0" />
+                <input type="hidden" name="Criteria[__i__].LevelDescriptions[@level.Id].PerformanceLevelId" value="@level.Id" />
+                <textarea name="Criteria[__i__].LevelDescriptions[@level.Id].Description"
+                          class="form-control form-control-sm criterion-desc"
+                          rows="2" placeholder="Description for Level @level.Level" required></textarea>
+            </td>
+        }
+        <td>
+            <button type="button" class="btn btn-sm btn-outline-danger remove-criterion" title="Remove criterion">&times;</button>
+        </td>
+    </tr>
 </template>
 
 <script>
     (function () {
         var form = document.getElementById('rubricForm');
-        var container = document.getElementById('criteria-container');
-        var template = document.getElementById('criterion-template');
-        var addBtn = document.getElementById('add-criterion');
-        var removeBtns = null;
         var maxScoreInput = document.getElementById('maxScoreInput');
-        var mismatchBox = document.getElementById('score-mismatch');
-        var summary = document.getElementById('score-summary');
-        var distributeBtn = document.getElementById('distribute-btn');
+        var levelsContainer = document.getElementById('levels-container');
+        var levelTemplate = document.getElementById('level-template');
+        var addLevelBtn = document.getElementById('add-level');
+        var criteriaTable = document.getElementById('criteria-table');
+        var criteriaRows = document.getElementById('criteria-rows');
+        var criterionTemplate = document.getElementById('criterion-template');
+        var addCriterionBtn = document.getElementById('add-criterion');
         var emptyHint = document.getElementById('criteria-empty-hint');
 
-        if (!form || !container || !template || !addBtn || !maxScoreInput) return;
+        if (!form || !maxScoreInput) return;
 
-        function rows() {
-            return Array.prototype.slice.call(container.querySelectorAll('.criterion-item'));
+        function getLevels() {
+            return Array.prototype.slice.call(levelsContainer.querySelectorAll('.level-item'));
         }
 
-        // Only rows the user actually filled in count towards the total.
-        function filledRows() {
-            return rows().filter(function (row) {
-                var nameInput = row.querySelector('.criterion-name');
-                return nameInput && nameInput.value.trim() !== '';
+        function getRows() {
+            return criteriaRows ? Array.prototype.slice.call(criteriaRows.querySelectorAll('.criterion-row')) : [];
+        }
+
+        function reindexLevels() {
+            var levels = getLevels();
+            levels.forEach(function (row, index) {
+                row.querySelectorAll('[name]').forEach(function (input) {
+                    input.name = input.name.replace(/PerformanceLevels\[\w+\]/, 'PerformanceLevels[' + index + ']');
+                });
+                // Update sort order to match index + 1
+                var sortInput = row.querySelector('.level-sort');
+                if (sortInput) sortInput.value = index + 1;
             });
         }
 
-        // Keep Criteria[n] contiguous so model binding stays predictable.
-        function reindex() {
-            rows().forEach(function (row, index) {
+        function reindexCriteria() {
+            var rows = getRows();
+            rows.forEach(function (row, index) {
+                row.dataset.index = index;
                 row.querySelectorAll('[name]').forEach(function (input) {
                     input.name = input.name.replace(/Criteria\[\w+\]/, 'Criteria[' + index + ']');
+                });
+                var sortInput = row.querySelector('.criterion-sort');
+                if (sortInput) sortInput.value = index;
+            });
+        }
+
+        function getPerformanceLevels() {
+            var levels = [];
+            getLevels().forEach(function (row) {
+                var levelInput = row.querySelector('.level-number');
+                var labelInput = row.querySelector('.level-label');
+                if (levelInput && labelInput) {
+                    levels.push({
+                        id: levelInput.name.match(/PerformanceLevels\[(\d+)\]/)?.[1] || 'new',
+                        level: parseInt(levelInput.value, 10),
+                        label: labelInput.value.trim()
+                    });
+                }
+            });
+            return levels.sort(function (a, b) { return a.level - b.level; });
+        }
+
+        function updateCriterionColumns() {
+            if (!criteriaTable || !criteriaRows) return;
+            var levels = getPerformanceLevels();
+            var maxScore = parseInt(maxScoreInput.value, 10) || 0;
+
+            // Update header
+            var thead = criteriaTable.querySelector('thead');
+            if (thead) {
+                var headerRow = thead.querySelector('tr');
+                if (headerRow) {
+                    // Keep first cell (Criterion) and last cell (actions)
+                    var firstCell = headerRow.querySelector('th:first-child');
+                    var lastCell = headerRow.querySelector('th:last-child');
+                    var middleCells = headerRow.querySelectorAll('th:not(:first-child):not(:last-child)');
+                    middleCells.forEach(function (cell) { cell.remove(); });
+
+                    levels.forEach(function (level) {
+                        var th = document.createElement('th');
+                        th.colSpan = 1;
+                        th.className = 'text-center';
+                        th.style.minWidth = '200px';
+                        th.textContent = 'Level ' + level.level + ': ' + level.label;
+                        if (lastCell) {
+                            headerRow.insertBefore(th, lastCell);
+                        } else {
+                            headerRow.appendChild(th);
+                        }
+                    });
+                }
+            }
+
+            // Update each criterion row
+            var rows = getRows();
+            rows.forEach(function (row) {
+                var cells = row.querySelectorAll('td');
+                var criterionCell = cells[0];
+                var actionCell = cells[cells.length - 1];
+
+                // Remove existing level cells
+                for (var i = 1; i < cells.length - 1; i++) {
+                    cells[i].remove();
+                }
+
+                // Add new level cells
+                levels.forEach(function (level) {
+                    var td = document.createElement('td');
+                    var levelDescTemplate = '<input type="hidden" name="Criteria[' + row.dataset.index + '].LevelDescriptions[' + level.level + '].Id" value="0" />' +
+                        '<input type="hidden" name="Criteria[' + row.dataset.index + '].LevelDescriptions[' + level.level + '].PerformanceLevelId" value="' + level.level + '" />' +
+                        '<textarea name="Criteria[' + row.dataset.index + '].LevelDescriptions[' + level.level + '].Description" class="form-control form-control-sm criterion-desc" rows="2" placeholder="Description for Level ' + level.level + '" required></textarea>';
+                    td.innerHTML = levelDescTemplate;
+                    row.insertBefore(td, actionCell);
                 });
             });
         }
 
-        function rubricMax() {
-            return parseInt(maxScoreInput.value, 10) || 0;
+        // Add performance level
+        if (addLevelBtn) {
+            addLevelBtn.addEventListener('click', function () {
+                var levels = getLevels();
+                var maxScore = parseInt(maxScoreInput.value, 10) || 4;
+                if (levels.length >= maxScore) {
+                    alert('Cannot have more levels than Max Score (' + maxScore + ').');
+                    return;
+                }
+                var nextLevel = levels.length + 1;
+                var html = levelTemplate.innerHTML
+                    .replace(/__i__/g, levels.length)
+                    .replace(/__level__/g, nextLevel)
+                    .replace(/__maxScore__/g, maxScore);
+                var div = document.createElement('div');
+                div.innerHTML = html.trim();
+                levelsContainer.appendChild(div.firstElementChild);
+                reindexLevels();
+                updateCriterionColumns();
+            });
         }
 
-        function totalAllocated() {
-            return filledRows().reduce(function (sum, row) {
-                var scoreInput = row.querySelector('.criterion-score');
-                return sum + (parseInt(scoreInput.value, 10) || 0);
-            }, 0);
-        }
+        // Remove performance level
+        levelsContainer.addEventListener('click', function (e) {
+            if (!e.target.classList.contains('remove-level')) return;
+            var levels = getLevels();
+            if (levels.length <= 1) return;
+            e.target.closest('.level-item').remove();
+            reindexLevels();
+            updateCriterionColumns();
+        });
 
-        function isAligned() {
-            var filled = filledRows();
-            if (filled.length === 0) return true;
-            return totalAllocated() === rubricMax();
-        }
-
-        function update() {
-            var filled = filledRows();
-            var max = rubricMax();
-            var total = totalAllocated();
-
-            rows().forEach(function (row) {
-                var scoreInput = row.querySelector('.criterion-score');
-                if (scoreInput) scoreInput.max = String(max > 0 ? max : 0);
-                var btn = row.querySelector('.remove-criterion');
-                if (btn) btn.disabled = rows().length <= 1;
+        // Max score change
+        maxScoreInput.addEventListener('change', function () {
+            var maxScore = parseInt(maxScoreInput.value, 10) || 4;
+            var levels = getLevels();
+            var filledLevels = levels.filter(function (l) {
+                return l.querySelector('.level-label').value.trim() !== '';
             });
 
-            if (emptyHint) emptyHint.style.display = rows().length === 0 ? 'block' : 'none';
-
-            if (filled.length === 0) {
-                summary.textContent = 'No criteria added yet.';
-                summary.className = 'text-muted';
-                mismatchBox.classList.add('d-none');
+            if (filledLevels.length > maxScore) {
+                alert('Max Score cannot be less than the number of filled performance levels (' + filledLevels.length + ').');
+                maxScoreInput.value = filledLevels.length;
                 return;
             }
 
-            if (isAligned()) {
-                summary.textContent = 'Criteria allocate ' + total + ' of ' + max + ' points - aligned.';
-                summary.className = 'text-success';
-                mismatchBox.classList.add('d-none');
-            } else {
-                var diff = total - max;
-                summary.textContent = 'Criteria allocate ' + total + ' of ' + max + ' points (' +
-                    (diff > 0 ? '+' + diff + ' over' : Math.abs(diff) + ' short') + ').';
-                summary.className = 'text-danger fw-bold';
+            // Update max attribute on level inputs
+            levels.forEach(function (row) {
+                var levelInput = row.querySelector('.level-number');
+                if (levelInput) levelInput.max = maxScore;
+            });
+        });
 
-                mismatchBox.innerHTML = '<strong>Scores do not line up.</strong> The rubric maximum is ' +
-                    max + ' but the criteria allocate ' + total + ' points. ' +
-                    'Adjust the criterion scores, or use "Distribute maximum evenly" to rebalance them.';
-                mismatchBox.classList.remove('d-none');
-            }
-        }
-
-        function distribute(total, list) {
-            if (!list.length) return;
-            var base = Math.floor(total / list.length);
-            var remainder = total % list.length;
-            list.forEach(function (row) {
-                var extra = remainder > 0 ? 1 : 0;
-                remainder -= extra;
-                row.querySelector('.criterion-score').value = base + extra;
+        // Add criterion
+        if (addCriterionBtn && criteriaRows) {
+            addCriterionBtn.addEventListener('click', function () {
+                var rows = getRows();
+                var html = criterionTemplate.innerHTML.replace(/__i__/g, rows.length);
+                var tr = document.createElement('tr');
+                tr.innerHTML = html.trim();
+                criteriaRows.appendChild(tr.firstElementChild);
+                reindexCriteria();
+                if (emptyHint) emptyHint.style.display = 'none';
             });
         }
 
-        addBtn.addEventListener('click', function () {
-            container.appendChild(template.content.cloneNode(true));
-            reindex();
-            update();
-            var last = rows()[rows().length - 1];
-            if (last) last.querySelector('.criterion-name').focus();
-        });
-
-        document.addEventListener('click', function (e) {
+        // Remove criterion
+        criteriaRows?.addEventListener('click', function (e) {
             if (!e.target.classList.contains('remove-criterion')) return;
-            if (rows().length <= 1) return;
-            e.target.closest('.criterion-item').remove();
-            reindex();
-            update();
+            var rows = getRows();
+            if (rows.length <= 1) return;
+            e.target.closest('.criterion-row').remove();
+            reindexCriteria();
+            if (emptyHint && getRows().length === 0) emptyHint.style.display = 'block';
         });
 
-        container.addEventListener('input', function (e) {
-            if (e.target.classList.contains('criterion-score') || e.target.classList.contains('criterion-name')) {
-                update();
-            }
-        });
-
-        // Changing the rubric maximum alerts the user and offers to rebalance.
-        maxScoreInput.addEventListener('change', function () {
-            var newMax = rubricMax();
-            var filled = filledRows();
-
-            if (filled.length > 0 && totalAllocated() !== newMax) {
-                var agree = window.confirm(
-                    'Maximum score changed to ' + newMax + '.\n\n' +
-                    'The ' + filled.length + ' criteria currently allocate ' + totalAllocated() + ' points.\n\n' +
-                    'OK = distribute ' + newMax + ' evenly across the criteria\n' +
-                    'Cancel = keep the current criterion scores');
-
-                if (agree) distribute(newMax, filled);
-            }
-
-            update();
-        });
-
-        if (distributeBtn) {
-            distributeBtn.addEventListener('click', function () {
-                var filled = filledRows();
-                if (filled.length === 0) {
-                    window.alert('Add at least one criterion before distributing scores.');
-                    return;
-                }
-                distribute(rubricMax(), filled);
-                update();
+        // Initialize
+        if (levelsContainer) {
+            levelsContainer.querySelectorAll('.level-number').forEach(function (input) {
+                input.max = maxScoreInput.value;
             });
         }
-
-        form.addEventListener('submit', function (e) {
-            reindex();
-            update();
-            if (!isAligned()) {
-                e.preventDefault();
-                window.alert('The criterion scores must add up to the rubric maximum score (' + rubricMax() + ').');
-            }
-        });
-
-        reindex();
-        update();
+        if (emptyHint && getRows().length > 0) emptyHint.style.display = 'none';
     })();
 </script>

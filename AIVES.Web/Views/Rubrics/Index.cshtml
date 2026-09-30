@@ -32,7 +32,7 @@
                         <p class="text-muted small">@rubric.Description</p>
                     }
                     <div class="mb-2">
-                        <small class="text-muted">@rubric.CriteriaCount criteria</small>
+                        <small class="text-muted">@rubric.CriteriaCount criteria, @rubric.PerformanceLevelsCount levels</small>
                     </div>
                     <div class="d-flex gap-2">
                         <a asp-action="Details" asp-route-id="@rubric.Id" class="btn btn-sm btn-outline-primary">View</a>

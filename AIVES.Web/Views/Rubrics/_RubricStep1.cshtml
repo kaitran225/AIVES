@@ -1,0 +1,57 @@
+@model RubricFormViewModel
+
+@*
+    Step 1: Define rubric structure (dimensions)
+*@
+
+<form asp-action="Create" method="post" id="rubricForm">
+    <input type="hidden" name="Step" value="1" />
+    <div asp-validation-summary="All" class="text-danger"></div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Step 1: Define Rubric Structure</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label">Rubric Name *</label>
+                <input asp-for="Name" class="form-control" placeholder="e.g., Technical Understanding" required />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Description" class="form-label">Description</label>
+                <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="MaxScore" class="form-label">Number of Performance Levels (Max Score) *</label>
+                    <input asp-for="MaxScore" id="maxScoreInput" type="number" class="form-control" min="2" max="10" required />
+                    <div class="form-text">Creates levels 1 to N (e.g., 4 = Beginning, Developing, Proficient, Exemplary)</div>
+                    <span asp-validation-for="MaxScore" class="text-danger"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Number of Criteria (Rows) *</label>
+                    <input type="number" name="CriteriaCount" id="criteriaCountInput" class="form-control" min="1" max="20" required value="@(Model.Criteria?.Count ?? 3)" />
+                    <div class="form-text">How many criteria rows in the matrix</div>
+                    <span class="text-danger" data-valmsg-for="CriteriaCount" data-valmsg-replace="true"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Next: Fill Matrix</button>
+        <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+
+<script>
+    // Simple client-side validation for criteria count
+    document.getElementById('rubricForm')?.addEventListener('submit', function (e) {
+        var criteriaCount = parseInt(document.getElementById('criteriaCountInput').value, 10);
+        if (!criteriaCount || criteriaCount < 1) {
+            e.preventDefault();
+            alert('Please enter a valid number of criteria (1-20).');
+        }
+    });
+</script>

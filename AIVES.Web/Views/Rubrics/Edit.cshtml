@@ -5,7 +5,6 @@
 }
 
 <h2>Edit Rubric: @Model.Name</h2>
-<p class="text-muted">Criteria scores must add up to the rubric maximum score.</p>
 
 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
 {
@@ -13,30 +12,35 @@
 }
 
 <div class="row">
-    <div class="col-md-9">
+    <div class="col-md-10">
         <form asp-action="Edit" method="post" id="rubricForm">
             <input type="hidden" asp-for="Id" />
             <div asp-validation-summary="All" class="text-danger"></div>
 
-            <div class="mb-3">
-                <label asp-for="Name" class="form-label">Rubric Name *</label>
-                <input asp-for="Name" class="form-control" required />
-                <span asp-validation-for="Name" class="text-danger"></span>
-            </div>
-            <div class="mb-3">
-                <label asp-for="Description" class="form-label">Description</label>
-                <textarea asp-for="Description" class="form-control" rows="2"></textarea>
-            </div>
-            <div class="mb-3">
-                <label asp-for="MaxScore" class="form-label">Maximum Score *</label>
-                <input asp-for="MaxScore" id="maxScoreInput" type="number" class="form-control" min="1" max="100" required />
-                <div class="form-text">Total points available across all criteria. Changing this rebalances the criteria.</div>
-                <span asp-validation-for="MaxScore" class="text-danger"></span>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Rubric Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label asp-for="Name" class="form-label">Rubric Name *</label>
+                        <input asp-for="Name" class="form-control" required />
+                        <span asp-validation-for="Name" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label">Description</label>
+                        <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="MaxScore" class="form-label">Max Score (Levels) *</label>
+                        <input asp-for="MaxScore" type="number" class="form-control" min="2" max="10" required readonly />
+                        <div class="form-text">Cannot change number of levels for existing rubric.</div>
+                        <span asp-validation-for="MaxScore" class="text-danger"></span>
+                    </div>
+                </div>
             </div>
 
-            <hr />
-
-            <partial name="_CriteriaEditor" model="Model" />
+            <partial name="_EditMatrix" model="Model" />
 
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">Save Changes</button>

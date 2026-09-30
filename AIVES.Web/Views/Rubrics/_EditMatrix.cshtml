@@ -1,0 +1,107 @@
+@model RubricFormViewModel
+
+@*
+    Matrix editor for editing existing rubric
+*@
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Edit Matrix (@Model.Criteria?.Count ?? 0) criteria × @Model.MaxScore levels</h5>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info small mb-3">
+            Edit descriptions for each criterion at each performance level.
+        </div>
+
+        @* Performance Level Labels *@
+        <h6>Performance Level Labels</h6>
+        <div class="row mb-3">
+            @for (int i = 0; i < Model.MaxScore; i++)
+            {
+                var level = i + 1;
+                var existingLabel = "";
+                if (Model.PerformanceLevels != null && i < Model.PerformanceLevels.Count)
+                {
+                    existingLabel = Model.PerformanceLevels[i].Label;
+                }
+                else
+                {
+                    existingLabel = level == 1 ? "Beginning" : level == 2 ? "Developing" : level == 3 ? "Proficient" : level == 4 ? "Exemplary" : "Level " + level;
+                }
+                <div class="col-md-3 mb-2">
+                    <label class="form-label small">Level @level</label>
+                    <input type="text" name="LevelLabels[@i]" class="form-control form-control-sm"
+                           value="@existingLabel"
+                           placeholder="Label for level @level" required />
+                </div>
+            }
+        </div>
+
+        <hr />
+
+        @* Criteria Names *@
+        <h6>Criterion Names</h6>
+        <div class="row mb-3">
+            @for (int i = 0; i < (Model.Criteria?.Count ?? 0); i++)
+            {
+                var criterionName = Model.Criteria?[i].Criterion ?? "";
+                <div class="col-md-6 mb-2">
+                    <label class="form-label small">Criterion @(i + 1)</label>
+                    <input type="text" name="CriterionNames[@i]" class="form-control form-control-sm"
+                           value="@criterionName"
+                           placeholder="e.g., Technical Accuracy" required />
+                </div>
+            }
+        </div>
+
+        <hr />
+
+        @* Matrix Grid *@
+        <h6>Matrix Descriptions</h6>
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm align-middle" id="matrix-table">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width: 200px;">Criterion \ Level</th>
+                        @for (int i = 0; i < Model.MaxScore; i++)
+                        {
+                            <th class="text-center" style="min-width: 180px;">Level @(i + 1)</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int row = 0; row < (Model.Criteria?.Count ?? 0); row++)
+                    {
+                        <tr>
+                            <td class="fw-bold">
+                                Criterion @(row + 1)
+                                <input type="hidden" name="Criteria[@row].SortOrder" value="@row" />
+                                <input type="hidden" name="Criteria[@row].Id" value="@(Model.Criteria?[row].Id ?? 0)" />
+                            </td>
+                            @for (int col = 0; col < Model.MaxScore; col++)
+                            {
+                                var level = col + 1;
+                                var desc = "";
+                                if (Model.Criteria != null && row < Model.Criteria.Count)
+                                {
+                                    var existingDesc = Model.Criteria[row].LevelDescriptions.FirstOrDefault(d => d.PerformanceLevelId == level);
+                                    desc = existingDesc?.Description ?? "";
+                                }
+                                <td>
+                                    <textarea name="Criteria[@row].LevelDescriptions[@col].Description"
+                                              class="form-control form-control-sm matrix-cell"
+                                              rows="2" placeholder="Description for Level @level" required>@desc</textarea>
+                                    <input type="hidden" name="Criteria[@row].LevelDescriptions[@col].PerformanceLevelId" value="@level" />
+                                    @if (Model.Criteria?[row].LevelDescriptions.Count > col)
+                                    {
+                                        <input type="hidden" name="Criteria[@row].LevelDescriptions[@col].Id" value="@(Model.Criteria[row].LevelDescriptions[col].Id)" />
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

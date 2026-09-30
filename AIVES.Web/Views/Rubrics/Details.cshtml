@@ -16,32 +16,69 @@
         {
             <p class="text-muted">@Model.Description</p>
         }
-        <hr />
-        <h6>Criteria</h6>
-        <table class="table table-bordered">
-            <thead class="table-light">
-                <tr>
-                    <th>#</th>
-                    <th>Criterion</th>
-                    <th>Description</th>
-                    <th>Max Score</th>
-                    <th>Scoring Guidance</th>
-                </tr>
-            </thead>
-            <tbody>
-                @for (int i = 0; i < Model.Criteria.Count; i++)
-                {
-                    var c = Model.Criteria[i];
+
+        <h6>Performance Levels</h6>
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
                     <tr>
-                        <td>@(i + 1)</td>
-                        <td><strong>@c.Criterion</strong></td>
-                        <td>@c.Description</td>
-                        <td><span class="badge bg-secondary">@c.MaxScore</span></td>
-                        <td class="small">@c.ScoringGuidance</td>
+                        <th>Level</th>
+                        <th>Label</th>
+                        <th>Sort Order</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var level in Model.PerformanceLevels.OrderBy(p => p.SortOrder))
+                    {
+                        <tr>
+                            <td>@level.Level</td>
+                            <td>@level.Label</td>
+                            <td>@level.SortOrder</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <hr />
+
+        <h6>Criteria Matrix</h6>
+        @if (Model.Criteria.Count == 0)
+        {
+            <p class="text-muted">No criteria defined.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th rowspan="2" style="min-width: 200px;">Criterion</th>
+                            @foreach (var level in Model.PerformanceLevels.OrderBy(p => p.SortOrder))
+                            {
+                                <th colspan="1" class="text-center" style="min-width: 200px;">
+                                    Level @level.Level: @level.Label
+                                </th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < Model.Criteria.Count; i++)
+                        {
+                            var c = Model.Criteria[i];
+                            <tr>
+                                <td><strong>@c.Criterion</strong></td>
+                                @foreach (var level in Model.PerformanceLevels.OrderBy(p => p.SortOrder))
+                                {
+                                    var desc = c.LevelDescriptions.FirstOrDefault(d => d.PerformanceLevelId == level.Id);
+                                    <td class="small">@(desc?.Description ?? "—")</td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
     </div>
 </div>
 

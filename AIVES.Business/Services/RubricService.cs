@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace AIVES.Business.Services
 {
     /// <summary>
-    /// Manages grading rubrics and their criteria.
+    /// Manages grading rubrics and their criteria (matrix structure).
     /// </summary>
     public class RubricService : IRubricService
     {
@@ -21,7 +21,9 @@ namespace AIVES.Business.Services
         public async Task<IEnumerable<RubricDto>> GetAllRubricsAsync()
         {
             var rubrics = await _context.QuestionRubrics
-                .Include(r => r.Criteria)
+                .Include(r => r.PerformanceLevels.OrderBy(p => p.SortOrder))
+                .Include(r => r.Criteria.OrderBy(c => c.SortOrder))
+                    .ThenInclude(c => c.LevelDescriptions)
                 .OrderBy(r => r.Name)
                 .ToListAsync();
 
@@ -31,7 +33,9 @@ namespace AIVES.Business.Services
         public async Task<RubricDto?> GetRubricByIdAsync(int id)
         {
             var rubric = await _context.QuestionRubrics
-                .Include(r => r.Criteria)
+                .Include(r => r.PerformanceLevels.OrderBy(p => p.SortOrder))
+                .Include(r => r.Criteria.OrderBy(c => c.SortOrder))
+                    .ThenInclude(c => c.LevelDescriptions)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             return rubric == null ? null : MapToDto(rubric);
@@ -44,12 +48,21 @@ namespace AIVES.Business.Services
                 Name = dto.Name,
                 Description = dto.Description,
                 MaxScore = dto.MaxScore,
+                PerformanceLevels = dto.PerformanceLevels.Select(p => new PerformanceLevel
+                {
+                    Level = p.Level,
+                    Label = p.Label,
+                    SortOrder = p.SortOrder
+                }).ToList(),
                 Criteria = dto.Criteria.Select(c => new RubricCriterion
                 {
                     Criterion = c.Criterion,
-                    Description = c.Description,
-                    MaxScore = c.MaxScore,
-                    ScoringGuidance = c.ScoringGuidance
+                    SortOrder = c.SortOrder,
+                    LevelDescriptions = c.LevelDescriptions.Select(d => new CriterionLevelDescription
+                    {
+                        PerformanceLevelId = d.PerformanceLevelId,
+                        Description = d.Description
+                    }).ToList()
                 }).ToList()
             };
 
@@ -62,7 +75,9 @@ namespace AIVES.Business.Services
         public async Task<RubricDto> UpdateRubricAsync(RubricUpdateDto dto)
         {
             var rubric = await _context.QuestionRubrics
+                .Include(r => r.PerformanceLevels)
                 .Include(r => r.Criteria)
+                    .ThenInclude(c => c.LevelDescriptions)
                 .FirstOrDefaultAsync(r => r.Id == dto.Id);
 
             if (rubric == null)
@@ -72,7 +87,35 @@ namespace AIVES.Business.Services
             rubric.Description = dto.Description;
             rubric.MaxScore = dto.MaxScore;
 
-            // Update or create criteria
+            // Update performance levels
+            var existingLevels = rubric.PerformanceLevels.ToList();
+            foreach (var levelDto in dto.PerformanceLevels)
+            {
+                if (levelDto.Id > 0)
+                {
+                    var existing = existingLevels.FirstOrDefault(l => l.Id == levelDto.Id);
+                    if (existing != null)
+                    {
+                        existing.Level = levelDto.Level;
+                        existing.Label = levelDto.Label;
+                        existing.SortOrder = levelDto.SortOrder;
+                    }
+                }
+                else
+                {
+                    rubric.PerformanceLevels.Add(new PerformanceLevel
+                    {
+                        Level = levelDto.Level,
+                        Label = levelDto.Label,
+                        SortOrder = levelDto.SortOrder
+                    });
+                }
+            }
+            var dtoLevelIds = dto.PerformanceLevels.Select(l => l.Id).ToHashSet();
+            var levelsToRemove = existingLevels.Where(l => !dtoLevelIds.Contains(l.Id)).ToList();
+            _context.PerformanceLevels.RemoveRange(levelsToRemove);
+
+            // Update criteria
             var existingCriteria = rubric.Criteria.ToList();
             foreach (var criterionDto in dto.Criteria)
             {
@@ -82,9 +125,33 @@ namespace AIVES.Business.Services
                     if (existing != null)
                     {
                         existing.Criterion = criterionDto.Criterion;
-                        existing.Description = criterionDto.Description;
-                        existing.MaxScore = criterionDto.MaxScore;
-                        existing.ScoringGuidance = criterionDto.ScoringGuidance;
+                        existing.SortOrder = criterionDto.SortOrder;
+
+                        // Update level descriptions
+                        var existingDescriptions = existing.LevelDescriptions.ToList();
+                        foreach (var descDto in criterionDto.LevelDescriptions)
+                        {
+                            if (descDto.Id > 0)
+                            {
+                                var existingDesc = existingDescriptions.FirstOrDefault(d => d.Id == descDto.Id);
+                                if (existingDesc != null)
+                                {
+                                    existingDesc.PerformanceLevelId = descDto.PerformanceLevelId;
+                                    existingDesc.Description = descDto.Description;
+                                }
+                            }
+                            else
+                            {
+                                existing.LevelDescriptions.Add(new CriterionLevelDescription
+                                {
+                                    PerformanceLevelId = descDto.PerformanceLevelId,
+                                    Description = descDto.Description
+                                });
+                            }
+                        }
+                        var dtoDescIds = criterionDto.LevelDescriptions.Select(d => d.Id).ToHashSet();
+                        var descsToRemove = existingDescriptions.Where(d => !dtoDescIds.Contains(d.Id)).ToList();
+                        _context.CriterionLevelDescriptions.RemoveRange(descsToRemove);
                     }
                 }
                 else
@@ -92,17 +159,18 @@ namespace AIVES.Business.Services
                     rubric.Criteria.Add(new RubricCriterion
                     {
                         Criterion = criterionDto.Criterion,
-                        Description = criterionDto.Description,
-                        MaxScore = criterionDto.MaxScore,
-                        ScoringGuidance = criterionDto.ScoringGuidance
+                        SortOrder = criterionDto.SortOrder,
+                        LevelDescriptions = criterionDto.LevelDescriptions.Select(d => new CriterionLevelDescription
+                        {
+                            PerformanceLevelId = d.PerformanceLevelId,
+                            Description = d.Description
+                        }).ToList()
                     });
                 }
             }
-
-            // Remove deleted criteria
-            var dtoIds = dto.Criteria.Select(c => c.Id).ToHashSet();
-            var toRemove = existingCriteria.Where(c => !dtoIds.Contains(c.Id)).ToList();
-            _context.RubricCriteria.RemoveRange(toRemove);
+            var dtoCriteriaIds = dto.Criteria.Select(c => c.Id).ToHashSet();
+            var criteriaToRemove = existingCriteria.Where(c => !dtoCriteriaIds.Contains(c.Id)).ToList();
+            _context.RubricCriteria.RemoveRange(criteriaToRemove);
 
             await _context.SaveChangesAsync();
             return MapToDto(rubric);
@@ -112,11 +180,18 @@ namespace AIVES.Business.Services
         {
             var rubric = await _context.QuestionRubrics
                 .Include(r => r.Criteria)
+                    .ThenInclude(c => c.LevelDescriptions)
+                .Include(r => r.PerformanceLevels)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (rubric != null)
             {
+                foreach (var criterion in rubric.Criteria)
+                {
+                    _context.CriterionLevelDescriptions.RemoveRange(criterion.LevelDescriptions);
+                }
                 _context.RubricCriteria.RemoveRange(rubric.Criteria);
+                _context.PerformanceLevels.RemoveRange(rubric.PerformanceLevels);
                 _context.QuestionRubrics.Remove(rubric);
                 await _context.SaveChangesAsync();
             }
@@ -124,7 +199,6 @@ namespace AIVES.Business.Services
 
         public async Task<IEnumerable<RubricDto>> GetRubricsByCourseAsync(int courseId)
         {
-            // Rubrics are not directly tied to courses; return all
             return await GetAllRubricsAsync();
         }
 
@@ -136,13 +210,24 @@ namespace AIVES.Business.Services
                 Name = rubric.Name,
                 Description = rubric.Description,
                 MaxScore = rubric.MaxScore,
+                PerformanceLevels = rubric.PerformanceLevels.Select(p => new PerformanceLevelDto
+                {
+                    Id = p.Id,
+                    Level = p.Level,
+                    Label = p.Label,
+                    SortOrder = p.SortOrder
+                }).ToList(),
                 Criteria = rubric.Criteria.Select(c => new CriterionDto
                 {
                     Id = c.Id,
                     Criterion = c.Criterion,
-                    Description = c.Description,
-                    MaxScore = c.MaxScore,
-                    ScoringGuidance = c.ScoringGuidance
+                    SortOrder = c.SortOrder,
+                    LevelDescriptions = c.LevelDescriptions.Select(d => new CriterionLevelDescriptionDto
+                    {
+                        Id = d.Id,
+                        PerformanceLevelId = d.PerformanceLevelId,
+                        Description = d.Description
+                    }).ToList()
                 }).ToList()
             };
         }

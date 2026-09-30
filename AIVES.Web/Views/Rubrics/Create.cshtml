@@ -5,7 +5,6 @@
 }
 
 <h2>Create Rubric</h2>
-<p class="text-muted">Criteria scores must add up to the rubric maximum score.</p>
 
 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
 {
@@ -13,34 +12,14 @@
 }
 
 <div class="row">
-    <div class="col-md-9">
-        <form asp-action="Create" method="post" id="rubricForm">
-            <div asp-validation-summary="All" class="text-danger"></div>
-
-            <div class="mb-3">
-                <label asp-for="Name" class="form-label">Rubric Name *</label>
-                <input asp-for="Name" class="form-control" placeholder="e.g., Technical Understanding" required />
-                <span asp-validation-for="Name" class="text-danger"></span>
-            </div>
-            <div class="mb-3">
-                <label asp-for="Description" class="form-label">Description</label>
-                <textarea asp-for="Description" class="form-control" rows="2"></textarea>
-            </div>
-            <div class="mb-3">
-                <label asp-for="MaxScore" class="form-label">Maximum Score *</label>
-                <input asp-for="MaxScore" id="maxScoreInput" type="number" class="form-control" min="1" max="100" required />
-                <div class="form-text">Total points available across all criteria. Changing this rebalances the criteria.</div>
-                <span asp-validation-for="MaxScore" class="text-danger"></span>
-            </div>
-
-            <hr />
-
-            <partial name="_CriteriaEditor" model="Model" />
-
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary">Create Rubric</button>
-                <a asp-action="Index" class="btn btn-secondary">Cancel</a>
-            </div>
-        </form>
+    <div class="col-md-8">
+        @if (Model.Step == 1)
+        {
+            <partial name="_RubricStep1" model="Model" />
+        }
+        else
+        {
+            <partial name="_RubricStep2" model="Model" />
+        }
     </div>
 </div>
